@@ -1,7 +1,4 @@
-use aes_gcm::{
-    aead::{Aead, AeadCore, KeyInit, OsRng},
-    Aes256Gcm, Key, Nonce,
-};
+use base64ct::{Base64, Encoding};
 use clap::{Arg, ArgAction, Command};
 use flexi_logger::{detailed_format, Duplicate, FileSpec, Logger};
 use indicatif::{ProgressBar, ProgressStyle};
@@ -148,69 +145,43 @@ fn gib() -> Command {
 
 fn encode(path: PathBuf) -> io::Result<()> {
     // TODO require password for later decoding
-    // println!("Enter a password");
 
     let file = fs::File::open(path)?;
     let mut buf_reader = BufReader::new(file);
     let mut content = String::new();
     buf_reader.read_to_string(&mut content)?;
 
-    // The encryption key can be generated randomly:
-    let key = Aes256Gcm::generate_key(OsRng);
+    // encoding simple base64 for now
+    let encoded = Base64::encode_string(content.as_bytes());
 
-    // // Transformed from a byte array:
-    // let key: &[u8; 32] = &[42; 32];
-    // let key: &Key<Aes256Gcm> = key.into();
-
-    // // Note that you can get byte array from slice using the `TryInto` trait:
-    // let key: &[u8] = &[42; 32];
-    // let key: [u8; 32] = key.try_into()?;
-
-    // // Alternatively, the key can be transformed directly from a byte slice
-    // // (panicks on length mismatch):
-    // let key = Key::<Aes256Gcm>::from_slice(key);
-
-    let cipher = Aes256Gcm::new(&key);
-
-    // // TODO make NOT random???
-    let nonce = Aes256Gcm::generate_nonce(&mut OsRng); // 96-bits; unique per message
-    dbg!(&nonce);
-
-    let ciphertext = cipher.encrypt(&nonce, content.as_ref()).unwrap();
-    dbg!(&ciphertext);
-
-    // TODO write encrypted content back to file
-    // with the nonce at the first line??? for later decoding
+    // write encrypted content back to file
     let mut newfile = fs::OpenOptions::new()
         .write(true)
         .create(true)
-        .open("testingresult.txt")?;
+        .open("testingencoded.txt")?;
 
-    // FIXME how to write nonce to file???
-    let nonce_string: String = nonce.try_into().unwrap();
-    let ciphertext_string = ciphertext.bytes().collect();
-
-    newfile.write_all(nonce_string)?;
-    newfile.write_all(ciphertext_string)?;
+    newfile.write_all(encoded.as_bytes())?;
 
     Ok(())
 }
 
 fn decode(path: PathBuf) -> io::Result<()> {
-    unimplemented!();
+    let file = fs::File::open(path)?;
+    let mut buf_reader = BufReader::new(file);
+    let mut content = String::new();
+    buf_reader.read_to_string(&mut content)?;
 
-    // let mut file = fs::File::open(path)?;
-    // let mut buf_reader = BufReader::new(file);
-    // let mut content = String::new();
-    // buf_reader.read_to_string(&mut content)?;
+    let decoded = Base64::decode_vec(&content).unwrap();
 
-    // TODO nonce == password???
-    // let plaintext = cipher.decrypt(&nonce, content.as_ref()).unwrap();
-    // dbg!(&plaintext);
+    // write decrpyted content back to file
+    let mut newfile = fs::OpenOptions::new()
+        .write(true)
+        .create(true)
+        .open("testingbackdecoded.txt")?;
 
-    // TODO write decrpyted content back to file
+    newfile.write_all(&decoded)?;
 
-    // Ok(())
+    Ok(())
 }
 
 fn check_create_config_dir() -> io::Result<PathBuf> {

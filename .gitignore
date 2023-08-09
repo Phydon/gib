@@ -1,4 +1,5 @@
 /target
 testfile.txt
 testfile2.txt
-testingresult.txt
+testingencoded.txt
+testingbackdecoded.txt
