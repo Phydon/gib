@@ -25,7 +25,6 @@ enum Method {
     Hex,
 }
 
-// TODO create a better error
 #[derive(Debug)]
 struct MethodError;
 
@@ -39,7 +38,7 @@ impl FromStr for Method {
             "hex" => Ok(Method::Hex),
             _ => {
                 error!("{:?}: Unknown method", MethodError);
-                info!("Usage: 'gib --list' to see all available methods");
+                info!("Type: 'gib --list' to see all available methods");
                 process::exit(0);
             }
         }
@@ -85,7 +84,7 @@ fn main() {
     let list_flag = matches.get_flag("list");
 
     if list_flag {
-        // list all available encoding / decoding methods
+        // list all available encoding/decoding methods
         list_methods();
     } else if let Some(arg) = matches.get_one::<String>("arg") {
         // get search path from arguments
@@ -96,7 +95,7 @@ fn main() {
             process::exit(0);
         }
 
-        // TODO use threading
+        // TODO use threading for multiple file input
         // TODO use multiple spinners
         // spinner
         let spinner_style = ProgressStyle::with_template("{spinner:.red} {msg}").unwrap();
@@ -114,6 +113,7 @@ fn main() {
             let mut encoded = Vec::new();
             match method.parse::<Method>().unwrap() {
                 Method::Base64ct => {
+                    // TODO better error handling => DRY
                     let mut tmp_encoded_vec = encode_base64ct(content).unwrap_or_else(|err| {
                         error!("Error while encoding file {}: {}", path.display(), err);
                         process::exit(1);
@@ -121,6 +121,7 @@ fn main() {
                     encoded.append(&mut tmp_encoded_vec);
                 }
                 Method::Caesar => {
+                    // TODO better error handling => DRY
                     let mut tmp_encoded_vec = encode_caesar(content).unwrap_or_else(|err| {
                         error!("Error while encoding file {}: {}", path.display(), err);
                         process::exit(1);
@@ -128,6 +129,7 @@ fn main() {
                     encoded.append(&mut tmp_encoded_vec);
                 }
                 Method::Hex => {
+                    // TODO better error handling => DRY
                     let mut tmp_encoded_vec = encode_hex(content).unwrap_or_else(|err| {
                         error!("Error while encoding file {}: {}", path.display(), err);
                         process::exit(1);
@@ -144,6 +146,7 @@ fn main() {
             let mut decoded = Vec::new();
             match method.parse::<Method>().unwrap() {
                 Method::Base64ct => {
+                    // TODO better error handling => DRY
                     let mut tmp_decoded_vec = decode_base64ct(content).unwrap_or_else(|err| {
                         error!("Error while decoding file {}: {}", path.display(), err);
                         process::exit(1);
@@ -151,6 +154,7 @@ fn main() {
                     decoded.append(&mut tmp_decoded_vec);
                 }
                 Method::Caesar => {
+                    // TODO better error handling => DRY
                     let mut tmp_decoded_vec = decode_caesar(content).unwrap_or_else(|err| {
                         error!("Error while decoding file {}: {}", path.display(), err);
                         process::exit(1);
@@ -158,6 +162,7 @@ fn main() {
                     decoded.append(&mut tmp_decoded_vec);
                 }
                 Method::Hex => {
+                    // TODO better error handling => DRY
                     let mut tmp_decoded_vec = decode_hex(content).unwrap_or_else(|err| {
                         error!("Error while decoding file {}: {}", path.display(), err);
                         process::exit(1);
@@ -171,7 +176,9 @@ fn main() {
         } else {
             // TODO replace with something useful
             // TODO what should be the default command if nothing is specified?
-            println!("Choose encoding or decoding");
+            info!("Usage: 'gib [OPTIONS] [PATH] [COMMAND]'");
+            info!("Type: 'gib help' to get more information");
+            process::exit(0);
         }
 
         pb.finish_and_clear();
