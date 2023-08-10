@@ -2,7 +2,7 @@ use base64ct::{Base64, Encoding};
 use clap::{Arg, ArgAction, Command};
 use flexi_logger::{detailed_format, Duplicate, FileSpec, Logger};
 use indicatif::{ProgressBar, ProgressStyle};
-use log::{error, warn};
+use log::{error, info};
 use owo_colors::colored::*;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
@@ -39,6 +39,7 @@ impl FromStr for Method {
             "hex" => Ok(Method::Hex),
             _ => {
                 error!("{:?}: Unknown method", MethodError);
+                info!("Usage: 'gib --list' to see all available methods");
                 process::exit(1);
             }
         }
@@ -132,10 +133,7 @@ fn main() {
                         process::exit(1);
                     });
                     encoded.append(&mut tmp_encoded_vec);
-                } // _ => {
-                  //     warn!("Unknown method");
-                  //     process::exit(1);
-                  // }
+                }
             }
 
             // write encrpyted content back to file
@@ -165,10 +163,7 @@ fn main() {
                         process::exit(1);
                     });
                     decoded.append(&mut tmp_decoded_vec);
-                } // _ => {
-                  //     warn!("Unknown method");
-                  //     process::exit(1);
-                  // }
+                }
             }
 
             // write decrpyted content back to file
@@ -193,7 +188,9 @@ fn main() {
                 }
             }
             _ => {
-                unreachable!();
+                info!("Usage: 'gib [OPTIONS] [PATH] [COMMAND]'");
+                info!("Type: 'gib help' to get more information");
+                process::exit(1);
             }
         }
     }
@@ -219,7 +216,7 @@ fn gib() -> Command {
         .long_about(format!(
             "{}\n{}",
             "GIBBERISH".italic(),
-            "Quickly encode / decode files 'on the fly'"
+            "Quickly en-/decode // en-/decrypt files 'on the fly'",
         ))
         // TODO update version
         .version("1.0.0")
@@ -236,26 +233,26 @@ fn gib() -> Command {
             Arg::new("decode")
                 .short('d')
                 .long("decode")
-                .help("Decode the file")
+                .help("Decode/Decrypt the file")
                 .action(ArgAction::Set)
                 .num_args(1)
-                .value_name("Decoding method")
+                .value_name("Decoding/Decrypting method")
                 .conflicts_with("encode"),
         )
         .arg(
             Arg::new("encode")
                 .short('e')
                 .long("encode")
-                .help("Encode the file")
+                .help("Encode/Encrypt the file")
                 .action(ArgAction::Set)
                 .num_args(1)
-                .value_name("Encoding method"),
+                .value_name("Encoding/Encrypting method"),
         )
         .arg(
             Arg::new("list")
                 .short('l')
                 .long("list")
-                .help("List all available encoding / decoding methods")
+                .help("List all available en-/decoding // en-/decrypting methods")
                 .action(ArgAction::SetTrue)
                 .conflicts_with_all(["decode", "encode"]),
         )

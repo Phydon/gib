@@ -2,14 +2,16 @@
 
 **gibberish**
 
-*quick file encoding / decoding "on the fly"*
+*quick file en-/decoding // en-/decrypting "on the fly"*
 
 
-### Supported en-/decoding methods:
+### Supported en-/decoding // en-/decrypting methods:
 
 *work in progress*
 
 * base64 (constant time)
+* caesar cipher
+* hex
 
 
 ## Usage
