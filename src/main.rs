@@ -174,7 +174,11 @@ fn gib() -> Command {
             "GIB".bold().truecolor(250, 0, 104),
             "Leann Phydon <leann.phydon@gmail.com>".italic().dimmed()
         ))
-        .long_about(format!("{}", "Quickly encode / decode files 'on the fly'",))
+        .long_about(format!(
+            "{}\n{}",
+            "GIBBERISH".italic(),
+            "Quickly encode / decode files 'on the fly'"
+        ))
         // TODO update version
         .version("1.0.0")
         .author("Leann Phydon <leann.phydon@gmail.com>")
@@ -203,8 +207,7 @@ fn gib() -> Command {
                 .help("Encode the file")
                 .action(ArgAction::Set)
                 .num_args(1)
-                .value_name("Encoding method")
-                .value_parser(clap::builder::NonEmptyStringValueParser::new()),
+                .value_name("Encoding method"),
         )
         .arg(
             Arg::new("list")
@@ -239,8 +242,7 @@ fn encode_base64ct(path: PathBuf) -> io::Result<()> {
     Ok(())
 }
 
-// FIXME remove undecoded rest from file
-// TODO decoding base64 constant time
+// decoding base64 constant time
 fn decode_base64ct(path: PathBuf) -> io::Result<()> {
     let content = read_file_content(&path)?;
     let decoded = Base64::decode_vec(&content).expect("Error while decoding file");
@@ -260,7 +262,11 @@ fn read_file_content(path: &PathBuf) -> io::Result<String> {
 }
 
 fn write_file_content(path: &PathBuf, content: &[u8]) -> io::Result<()> {
-    let mut newfile = fs::OpenOptions::new().write(true).create(true).open(path)?;
+    let mut newfile = fs::OpenOptions::new()
+        .write(true)
+        .truncate(true)
+        .create(true)
+        .open(path)?;
     newfile.write_all(&content)?;
 
     Ok(())
