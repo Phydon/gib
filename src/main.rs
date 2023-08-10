@@ -22,7 +22,7 @@ use std::{
 enum Method {
     Base64ct,
     Caesar,
-    Vigenere,
+    Hex,
 }
 
 // TODO create a better error
@@ -36,7 +36,7 @@ impl FromStr for Method {
         match s.to_ascii_lowercase().as_str() {
             "base64ct" | "base64" => Ok(Method::Base64ct),
             "caesar" => Ok(Method::Caesar),
-            "vigenere" => Ok(Method::Vigenere),
+            "hex" => Ok(Method::Hex),
             _ => {
                 error!("{:?}: Unknown method", MethodError);
                 process::exit(1);
@@ -126,18 +126,16 @@ fn main() {
                     });
                     encoded.append(&mut tmp_encoded_vec);
                 }
-                Method::Vigenere => {
-                    todo!();
-                    // let mut tmp_encoded_vec = encode_caesar(content).unwrap_or_else(|err| {
-                    //     error!("Error while encoding file {}: {}", path.display(), err);
-                    //     process::exit(1);
-                    // });
-                    // encoded.append(&mut tmp_encoded_vec);
-                }
-                _ => {
-                    warn!("Unknown method");
-                    process::exit(1);
-                }
+                Method::Hex => {
+                    let mut tmp_encoded_vec = encode_hex(content).unwrap_or_else(|err| {
+                        error!("Error while encoding file {}: {}", path.display(), err);
+                        process::exit(1);
+                    });
+                    encoded.append(&mut tmp_encoded_vec);
+                } // _ => {
+                  //     warn!("Unknown method");
+                  //     process::exit(1);
+                  // }
             }
 
             // write encrpyted content back to file
@@ -161,18 +159,16 @@ fn main() {
                     });
                     decoded.append(&mut tmp_decoded_vec);
                 }
-                Method::Vigenere => {
-                    todo!();
-                    // let mut tmp_decoded_vec = decode_caesar(content).unwrap_or_else(|err| {
-                    //     error!("Error while decoding file {}: {}", path.display(), err);
-                    //     process::exit(1);
-                    // });
-                    // decoded.append(&mut tmp_decoded_vec);
-                }
-                _ => {
-                    warn!("Unknown method");
-                    process::exit(1);
-                }
+                Method::Hex => {
+                    let mut tmp_decoded_vec = decode_hex(content).unwrap_or_else(|err| {
+                        error!("Error while decoding file {}: {}", path.display(), err);
+                        process::exit(1);
+                    });
+                    decoded.append(&mut tmp_decoded_vec);
+                } // _ => {
+                  //     warn!("Unknown method");
+                  //     process::exit(1);
+                  // }
             }
 
             // write decrpyted content back to file
@@ -292,6 +288,7 @@ fn decode_base64ct(content: String) -> io::Result<Vec<u8>> {
 }
 
 // encoding with caesar cipher
+// based on https://github.com/TheAlgorithms/Rust
 fn encode_caesar(content: String) -> io::Result<Vec<u8>> {
     // TODO let user choose a key between 1 <= key <= 26
     let key: u8 = 13;
@@ -317,6 +314,7 @@ fn encode_caesar(content: String) -> io::Result<Vec<u8>> {
 }
 
 // decoding caesar cipher
+// based on https://github.com/TheAlgorithms/Rust
 fn decode_caesar(content: String) -> io::Result<Vec<u8>> {
     // TODO get key from user
     let key: u8 = 13;
@@ -339,6 +337,20 @@ fn decode_caesar(content: String) -> io::Result<Vec<u8>> {
         .collect();
 
     Ok(decoded.into_bytes())
+}
+
+// encoding with hex
+fn encode_hex(content: String) -> io::Result<Vec<u8>> {
+    let encoded = hex::encode(content.trim().to_string());
+
+    Ok(encoded.into_bytes())
+}
+
+// decoding hex
+fn decode_hex(content: String) -> io::Result<Vec<u8>> {
+    let decoded = hex::decode(&content).expect("Error while decoding file");
+
+    Ok(decoded)
 }
 
 fn read_file_content(path: &PathBuf) -> io::Result<String> {
