@@ -22,7 +22,7 @@ use std::{
 enum Method {
     Base64ct,
     Caesar,
-    Vigener,
+    Vigenere,
 }
 
 // TODO create a better error
@@ -36,7 +36,7 @@ impl FromStr for Method {
         match s.to_ascii_lowercase().as_str() {
             "base64ct" | "base64" => Ok(Method::Base64ct),
             "caesar" => Ok(Method::Caesar),
-            "vigener" => Ok(Method::Vigener),
+            "vigenere" => Ok(Method::Vigenere),
             _ => {
                 error!("{:?}: Unknown method", MethodError);
                 process::exit(1);
@@ -119,6 +119,21 @@ fn main() {
                     });
                     encoded.append(&mut tmp_encoded_vec);
                 }
+                Method::Caesar => {
+                    let mut tmp_encoded_vec = encode_caesar(content).unwrap_or_else(|err| {
+                        error!("Error while encoding file {}: {}", path.display(), err);
+                        process::exit(1);
+                    });
+                    encoded.append(&mut tmp_encoded_vec);
+                }
+                Method::Vigenere => {
+                    todo!();
+                    // let mut tmp_encoded_vec = encode_caesar(content).unwrap_or_else(|err| {
+                    //     error!("Error while encoding file {}: {}", path.display(), err);
+                    //     process::exit(1);
+                    // });
+                    // encoded.append(&mut tmp_encoded_vec);
+                }
                 _ => {
                     warn!("Unknown method");
                     process::exit(1);
@@ -138,6 +153,21 @@ fn main() {
                         process::exit(1);
                     });
                     decoded.append(&mut tmp_decoded_vec);
+                }
+                Method::Caesar => {
+                    let mut tmp_decoded_vec = decode_caesar(content).unwrap_or_else(|err| {
+                        error!("Error while decoding file {}: {}", path.display(), err);
+                        process::exit(1);
+                    });
+                    decoded.append(&mut tmp_decoded_vec);
+                }
+                Method::Vigenere => {
+                    todo!();
+                    // let mut tmp_decoded_vec = decode_caesar(content).unwrap_or_else(|err| {
+                    //     error!("Error while decoding file {}: {}", path.display(), err);
+                    //     process::exit(1);
+                    // });
+                    // decoded.append(&mut tmp_decoded_vec);
                 }
                 _ => {
                     warn!("Unknown method");
@@ -263,10 +293,52 @@ fn decode_base64ct(content: String) -> io::Result<Vec<u8>> {
 
 // encoding with caesar cipher
 fn encode_caesar(content: String) -> io::Result<Vec<u8>> {
-    // TODO change
-    let encoded = Base64::decode_vec(&content).expect("Error while decoding file");
+    // TODO let user choose a key between 1 <= key <= 26
+    let key: u8 = 13;
+    assert!(key <= 26 && key >= 1);
 
-    Ok(encoded)
+    let encoded: String = content
+        .chars()
+        .map(|char| {
+            if char.is_ascii_alphabetic() {
+                let value = if char.is_ascii_lowercase() {
+                    b'a'
+                } else {
+                    b'A'
+                };
+                (value + (char as u8 + key - value) % 26) as char
+            } else {
+                char
+            }
+        })
+        .collect();
+
+    Ok(encoded.into_bytes())
+}
+
+// decoding caesar cipher
+fn decode_caesar(content: String) -> io::Result<Vec<u8>> {
+    // TODO get key from user
+    let key: u8 = 13;
+    assert!(key <= 26 && key >= 1);
+
+    let decoded: String = content
+        .chars()
+        .map(|char| {
+            if char.is_ascii_alphabetic() {
+                let value = if char.is_ascii_lowercase() {
+                    b'a'
+                } else {
+                    b'A'
+                };
+                (value + (char as u8 + (26 - key) - value) % 26) as char
+            } else {
+                char
+            }
+        })
+        .collect();
+
+    Ok(decoded.into_bytes())
 }
 
 fn read_file_content(path: &PathBuf) -> io::Result<String> {
