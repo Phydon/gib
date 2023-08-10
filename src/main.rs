@@ -49,9 +49,12 @@ fn main() {
 
     // handle arguments
     let matches = gib().get_matches();
-    let decode_flag = matches.get_flag("decode");
+    let list_flag = matches.get_flag("list");
 
-    if let Some(arg) = matches.get_one::<String>("arg") {
+    // list all available encoding / decoding methods
+    if list_flag {
+        list_methods();
+    } else if let Some(arg) = matches.get_one::<String>("arg") {
         // get search path from arguments
         let path = Path::new(arg);
 
@@ -69,16 +72,41 @@ fn main() {
         pb.set_style(spinner_style);
 
         // start encoding / decoding
-        if decode_flag {
-            pb.set_message(format!("{}", "decoding...".truecolor(250, 0, 104)));
-            decode(path.to_path_buf()).unwrap_or_else(|err| {
-                error!("Error while decoding file {}: {}", path.display(), err);
-            });
-        } else {
+        // FIXME always encodes -> why?
+        if let Some(method) = matches.get_one::<String>("encode") {
+            // TODO remove
+            println!("Encoding");
             pb.set_message(format!("{}", "encoding...".truecolor(250, 0, 104)));
-            encode(path.to_path_buf()).unwrap_or_else(|err| {
-                error!("Error while encoding file {}: {}", path.display(), err);
-            });
+
+            match method.parse::<String>() {
+                Ok(_base64ct) => {
+                    encode_base64ct(path.to_path_buf()).unwrap_or_else(|err| {
+                        error!("Error while encoding file {}: {}", path.display(), err);
+                    });
+                }
+                Err(err) => {
+                    error!("Error while parsing method name. Unknown method: {err}");
+                    process::exit(1);
+                }
+            }
+        } else if let Some(method) = matches.get_one::<String>("decode") {
+            // TODO remove
+            println!("Decoding");
+            pb.set_message(format!("{}", "decoding...".truecolor(250, 0, 104)));
+
+            match method.parse::<String>() {
+                Ok(_base64ct) => {
+                    decode_base64ct(path.to_path_buf()).unwrap_or_else(|err| {
+                        error!("Error while decoding file {}: {}", path.display(), err);
+                    });
+                }
+                Err(err) => {
+                    error!("Error while parsing method name. Unknown method: {err}");
+                    process::exit(1);
+                }
+            }
+        } else {
+            println!("Choose encoding or decoding");
         }
 
         pb.finish_and_clear();
@@ -99,6 +127,8 @@ fn main() {
             }
         }
     }
+
+    process::exit(0);
 }
 
 // build cli
@@ -133,7 +163,29 @@ fn gib() -> Command {
                 .short('d')
                 .long("decode")
                 .help("Decode the file")
-                .action(ArgAction::SetTrue),
+                .default_value("base64")
+                .action(ArgAction::Set)
+                .num_args(1)
+                .value_name("Decoding method")
+                .conflicts_with("encode"),
+        )
+        .arg(
+            Arg::new("encode")
+                .short('e')
+                .long("encode")
+                .help("Encode the file")
+                .default_value("base64")
+                .action(ArgAction::Set)
+                .num_args(1)
+                .value_name("Encoding method"),
+        )
+        .arg(
+            Arg::new("list")
+                .short('l')
+                .long("list")
+                .help("List all available encoding / decoding methods")
+                .action(ArgAction::SetTrue)
+                .conflicts_with_all(["decode", "encode"]),
         )
         .subcommand(
             Command::new("log")
@@ -143,43 +195,78 @@ fn gib() -> Command {
         )
 }
 
-fn encode(path: PathBuf) -> io::Result<()> {
-    // TODO require password for later decoding
+// list all available methods
+fn list_methods() {
+    let methods = vec!["base64ct"];
 
-    let file = fs::File::open(path)?;
-    let mut buf_reader = BufReader::new(file);
-    let mut content = String::new();
-    buf_reader.read_to_string(&mut content)?;
+    for method in methods {
+        println!("{}", method);
+    }
+}
 
-    // encoding simple base64 for now
+// encoding with base64 constant time
+fn encode_base64ct(path: PathBuf) -> io::Result<()> {
+    let content = read_file_content(&path).unwrap_or_else(|err| {
+        error!(
+            "Error while reading content from file {}: {}",
+            path.display(),
+            err
+        );
+        process::exit(1);
+    });
+
     let encoded = Base64::encode_string(content.as_bytes());
 
     // write encrypted content back to file
-    let mut newfile = fs::OpenOptions::new()
-        .write(true)
-        .create(true)
-        .open("testingencoded.txt")?;
-
-    newfile.write_all(encoded.as_bytes())?;
+    write_file_content(&path, encoded.as_bytes()).unwrap_or_else(|err| {
+        error!(
+            "Error while writing content to file {}: {}",
+            path.display(),
+            err
+        );
+        process::exit(1);
+    });
 
     Ok(())
 }
 
-fn decode(path: PathBuf) -> io::Result<()> {
+fn decode_base64ct(path: PathBuf) -> io::Result<()> {
+    let content = read_file_content(&path).unwrap_or_else(|err| {
+        error!(
+            "Error while reading content from file {}: {}",
+            path.display(),
+            err
+        );
+        process::exit(1);
+    });
+
+    let decoded = Base64::decode_vec(&content).expect("Error while decoding file");
+
+    // write decrpyted content back to file
+    write_file_content(&path, &decoded).unwrap_or_else(|err| {
+        error!(
+            "Error while writing content to file {}: {}",
+            path.display(),
+            err
+        );
+        process::exit(1);
+    });
+
+    Ok(())
+}
+
+fn read_file_content(path: &PathBuf) -> io::Result<String> {
     let file = fs::File::open(path)?;
     let mut buf_reader = BufReader::new(file);
     let mut content = String::new();
     buf_reader.read_to_string(&mut content)?;
 
-    let decoded = Base64::decode_vec(&content).unwrap();
+    Ok(content)
+}
 
-    // write decrpyted content back to file
-    let mut newfile = fs::OpenOptions::new()
-        .write(true)
-        .create(true)
-        .open("testingbackdecoded.txt")?;
-
-    newfile.write_all(&decoded)?;
+fn write_file_content(path: &PathBuf, content: &[u8]) -> io::Result<()> {
+    let mut newfile = fs::OpenOptions::new().write(true).create(true).open(path)?;
+    newfile.write_all(&content)?;
 
     Ok(())
 }
