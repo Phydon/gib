@@ -14,3 +14,5 @@ ctrlc = "3.4.0"
 indicatif = "0.17.6"
 owo-colors = "3.5.0"
 base64ct = {version = "1.6.0", features = ["alloc"]}
+strum = "0.25.0"
+strum_macros = "0.25.0"
