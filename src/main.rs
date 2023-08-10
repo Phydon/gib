@@ -176,9 +176,14 @@ fn main() {
         } else {
             // TODO replace with something useful
             // TODO what should be the default command if nothing is specified?
-            info!("Usage: 'gib [OPTIONS] [PATH] [COMMAND]'");
-            info!("Type: 'gib help' to get more information");
-            process::exit(0);
+            // info!("Usage: 'gib [OPTIONS] [PATH] [COMMAND]'");
+            // info!("Type: 'gib help' to get more information");
+            // process::exit(0);
+
+            default_encoding(&path.to_path_buf()).unwrap_or_else(|err| {
+                error!("Error while encoding file {}: {}", path.display(), err);
+                process::exit(1);
+            });
         }
 
         pb.finish_and_clear();
@@ -355,6 +360,36 @@ fn decode_hex(content: String) -> io::Result<Vec<u8>> {
     let decoded = hex::decode(&content).expect("Error while decoding file");
 
     Ok(decoded)
+}
+
+fn default_encoding(path: &PathBuf) -> io::Result<()> {
+    let content =
+        read_file_content(&path.to_path_buf()).expect("Error while reading content to file");
+
+    let mut encoded_base64 = Vec::new();
+    let mut tmp_base64_encoded_vec = encode_base64ct(content).unwrap_or_else(|err| {
+        error!("Error while encoding file {}: {}", path.display(), err);
+        process::exit(1);
+    });
+    encoded_base64.append(&mut tmp_base64_encoded_vec);
+
+    // write encrpyted content back to file
+    write_file_content(&path.to_path_buf(), &encoded_base64).expect("Error while writing to file");
+
+    let content2 =
+        read_file_content(&path.to_path_buf()).expect("Error while reading content to file");
+
+    let mut encoded_caesar = Vec::new();
+    let mut tmp_caesar_encoded_vec = encode_caesar(content2).unwrap_or_else(|err| {
+        error!("Error while encoding file {}: {}", path.display(), err);
+        process::exit(1);
+    });
+    encoded_caesar.append(&mut tmp_caesar_encoded_vec);
+
+    // write encrpyted content back to file
+    write_file_content(&path.to_path_buf(), &encoded_caesar).expect("Error while writing to file");
+
+    Ok(())
 }
 
 fn read_file_content(path: &PathBuf) -> io::Result<String> {
