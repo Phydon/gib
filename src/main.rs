@@ -40,7 +40,7 @@ impl FromStr for Method {
             _ => {
                 error!("{:?}: Unknown method", MethodError);
                 info!("Usage: 'gib --list' to see all available methods");
-                process::exit(1);
+                process::exit(0);
             }
         }
     }
@@ -93,7 +93,7 @@ fn main() {
 
         if !path.exists() {
             error!("The file doesn`t exist");
-            process::exit(1);
+            process::exit(0);
         }
 
         // TODO use threading
@@ -190,7 +190,7 @@ fn main() {
             _ => {
                 info!("Usage: 'gib [OPTIONS] [PATH] [COMMAND]'");
                 info!("Type: 'gib help' to get more information");
-                process::exit(1);
+                process::exit(0);
             }
         }
     }
