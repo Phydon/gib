@@ -21,8 +21,8 @@ use std::{
 #[derive(Debug, EnumIter)]
 enum Method {
     Base64ct,
-    // TODO change this to another useful encoding method
-    NoEncoding,
+    Caesar,
+    Vigener,
 }
 
 // TODO create a better error
@@ -35,7 +35,8 @@ impl FromStr for Method {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_ascii_lowercase().as_str() {
             "base64ct" | "base64" => Ok(Method::Base64ct),
-            "noencoding" => Ok(Method::NoEncoding),
+            "caesar" => Ok(Method::Caesar),
+            "vigener" => Ok(Method::Vigener),
             _ => {
                 error!("{:?}: Unknown method", MethodError);
                 process::exit(1);
@@ -103,34 +104,49 @@ fn main() {
         pb.set_style(spinner_style);
 
         // start encoding / decoding
+        let content =
+            read_file_content(&path.to_path_buf()).expect("Error while reading content to file");
+
         if let Some(method) = matches.get_one::<String>("encode") {
             pb.set_message(format!("{}", "encoding...".truecolor(250, 0, 104)));
 
+            let mut encoded = Vec::new();
             match method.parse::<Method>().unwrap() {
                 Method::Base64ct => {
-                    encode_base64ct(path.to_path_buf()).unwrap_or_else(|err| {
+                    let mut tmp_encoded_vec = encode_base64ct(content).unwrap_or_else(|err| {
                         error!("Error while encoding file {}: {}", path.display(), err);
+                        process::exit(1);
                     });
+                    encoded.append(&mut tmp_encoded_vec);
                 }
                 _ => {
                     warn!("Unknown method");
                     process::exit(1);
                 }
             }
+
+            // write encrpyted content back to file
+            write_file_content(&path.to_path_buf(), &encoded).expect("Error while writing to file");
         } else if let Some(method) = matches.get_one::<String>("decode") {
             pb.set_message(format!("{}", "decoding...".truecolor(250, 0, 104)));
 
+            let mut decoded = Vec::new();
             match method.parse::<Method>().unwrap() {
                 Method::Base64ct => {
-                    decode_base64ct(path.to_path_buf()).unwrap_or_else(|err| {
+                    let mut tmp_decoded_vec = decode_base64ct(content).unwrap_or_else(|err| {
                         error!("Error while decoding file {}: {}", path.display(), err);
+                        process::exit(1);
                     });
+                    decoded.append(&mut tmp_decoded_vec);
                 }
                 _ => {
                     warn!("Unknown method");
                     process::exit(1);
                 }
             }
+
+            // write decrpyted content back to file
+            write_file_content(&path.to_path_buf(), &decoded).expect("Error while writing to file");
         } else {
             // TODO replace with something useful
             // TODO what should be the default command if nothing is specified?
@@ -233,23 +249,24 @@ fn list_methods() {
 }
 
 // encoding with base64 constant time
-fn encode_base64ct(path: PathBuf) -> io::Result<()> {
-    let content = read_file_content(&path)?;
+fn encode_base64ct(content: String) -> io::Result<Vec<u8>> {
     let encoded = Base64::encode_string(content.trim().to_string().as_bytes());
-    // write encrypted content back to file
-    write_file_content(&path, encoded.as_bytes())?;
 
-    Ok(())
+    Ok(encoded.into_bytes())
 }
 
 // decoding base64 constant time
-fn decode_base64ct(path: PathBuf) -> io::Result<()> {
-    let content = read_file_content(&path)?;
+fn decode_base64ct(content: String) -> io::Result<Vec<u8>> {
     let decoded = Base64::decode_vec(&content).expect("Error while decoding file");
-    // write decrpyted content back to file
-    write_file_content(&path, &decoded)?;
+    Ok(decoded)
+}
 
-    Ok(())
+// encoding with caesar cipher
+fn encode_caesar(content: String) -> io::Result<Vec<u8>> {
+    // TODO change
+    let encoded = Base64::decode_vec(&content).expect("Error while decoding file");
+
+    Ok(encoded)
 }
 
 fn read_file_content(path: &PathBuf) -> io::Result<String> {
