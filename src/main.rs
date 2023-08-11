@@ -8,6 +8,7 @@ use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
 use std::{
+    error::Error,
     fs,
     io::{self, BufReader, Read, Write},
     path::{Path, PathBuf},
@@ -17,7 +18,7 @@ use std::{
 };
 
 // TODO add more methods
-// available methods for encoding / decoding
+// available methods for en-/decoding // en-/decrypting
 #[derive(Debug, EnumIter)]
 enum Method {
     Base64ct,
@@ -45,7 +46,7 @@ impl FromStr for Method {
     }
 }
 
-fn main() {
+fn main() -> Result<(), Box<dyn Error>> {
     // handle Ctrl+C
     ctrlc::set_handler(move || {
         println!(
@@ -113,27 +114,15 @@ fn main() {
             let mut encoded = Vec::new();
             match method.parse::<Method>().unwrap() {
                 Method::Base64ct => {
-                    // TODO better error handling => DRY
-                    let mut tmp_encoded_vec = encode_base64ct(content).unwrap_or_else(|err| {
-                        error!("Error while encoding file {}: {}", path.display(), err);
-                        process::exit(1);
-                    });
+                    let mut tmp_encoded_vec = encode_base64ct(content)?;
                     encoded.append(&mut tmp_encoded_vec);
                 }
                 Method::Caesar => {
-                    // TODO better error handling => DRY
-                    let mut tmp_encoded_vec = encode_caesar(content).unwrap_or_else(|err| {
-                        error!("Error while encoding file {}: {}", path.display(), err);
-                        process::exit(1);
-                    });
+                    let mut tmp_encoded_vec = encode_caesar(content)?;
                     encoded.append(&mut tmp_encoded_vec);
                 }
                 Method::Hex => {
-                    // TODO better error handling => DRY
-                    let mut tmp_encoded_vec = encode_hex(content).unwrap_or_else(|err| {
-                        error!("Error while encoding file {}: {}", path.display(), err);
-                        process::exit(1);
-                    });
+                    let mut tmp_encoded_vec = encode_hex(content)?;
                     encoded.append(&mut tmp_encoded_vec);
                 }
             }
@@ -146,27 +135,15 @@ fn main() {
             let mut decoded = Vec::new();
             match method.parse::<Method>().unwrap() {
                 Method::Base64ct => {
-                    // TODO better error handling => DRY
-                    let mut tmp_decoded_vec = decode_base64ct(content).unwrap_or_else(|err| {
-                        error!("Error while decoding file {}: {}", path.display(), err);
-                        process::exit(1);
-                    });
+                    let mut tmp_decoded_vec = decode_base64ct(content)?;
                     decoded.append(&mut tmp_decoded_vec);
                 }
                 Method::Caesar => {
-                    // TODO better error handling => DRY
-                    let mut tmp_decoded_vec = decode_caesar(content).unwrap_or_else(|err| {
-                        error!("Error while decoding file {}: {}", path.display(), err);
-                        process::exit(1);
-                    });
+                    let mut tmp_decoded_vec = decode_caesar(content)?;
                     decoded.append(&mut tmp_decoded_vec);
                 }
                 Method::Hex => {
-                    // TODO better error handling => DRY
-                    let mut tmp_decoded_vec = decode_hex(content).unwrap_or_else(|err| {
-                        error!("Error while decoding file {}: {}", path.display(), err);
-                        process::exit(1);
-                    });
+                    let mut tmp_decoded_vec = decode_hex(content)?;
                     decoded.append(&mut tmp_decoded_vec);
                 }
             }
@@ -180,10 +157,7 @@ fn main() {
             // info!("Type: 'gib help' to get more information");
             // process::exit(0);
 
-            default_encoding(&path.to_path_buf()).unwrap_or_else(|err| {
-                error!("Error while encoding file {}: {}", path.display(), err);
-                process::exit(1);
-            });
+            default_encoding(&path.to_path_buf())?;
         }
 
         pb.finish_and_clear();
@@ -207,7 +181,7 @@ fn main() {
         }
     }
 
-    process::exit(0);
+    Ok(())
 }
 
 // build cli
@@ -361,6 +335,10 @@ fn encode_hex(content: String) -> io::Result<Vec<u8>> {
 
 // decoding hex
 fn decode_hex(content: String) -> io::Result<Vec<u8>> {
+    // TODO workaround: error in crate hex?
+    // TODO remove later
+    assert!(!content.contains("a7"));
+
     let decoded = hex::decode(&content).expect("Error while decoding file");
 
     Ok(decoded)
@@ -369,12 +347,8 @@ fn decode_hex(content: String) -> io::Result<Vec<u8>> {
 fn default_encoding(path: &PathBuf) -> io::Result<()> {
     let content =
         read_file_content(&path.to_path_buf()).expect("Error while reading content to file");
-
     let mut encoded_base64 = Vec::new();
-    let mut tmp_base64_encoded_vec = encode_base64ct(content).unwrap_or_else(|err| {
-        error!("Error while encoding file {}: {}", path.display(), err);
-        process::exit(1);
-    });
+    let mut tmp_base64_encoded_vec = encode_base64ct(content)?;
     encoded_base64.append(&mut tmp_base64_encoded_vec);
 
     // write encrpyted content back to file
@@ -382,12 +356,8 @@ fn default_encoding(path: &PathBuf) -> io::Result<()> {
 
     let content2 =
         read_file_content(&path.to_path_buf()).expect("Error while reading content to file");
-
     let mut encoded_caesar = Vec::new();
-    let mut tmp_caesar_encoded_vec = encode_caesar(content2).unwrap_or_else(|err| {
-        error!("Error while encoding file {}: {}", path.display(), err);
-        process::exit(1);
-    });
+    let mut tmp_caesar_encoded_vec = encode_caesar(content2)?;
     encoded_caesar.append(&mut tmp_caesar_encoded_vec);
 
     // write encrpyted content back to file
