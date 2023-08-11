@@ -1,4 +1,8 @@
 use base64ct::{Base64, Encoding};
+use chacha20poly1305::{
+    aead::{Aead, AeadCore, KeyInit, OsRng},
+    ChaCha20Poly1305,
+};
 use clap::{Arg, ArgAction, Command};
 use flexi_logger::{detailed_format, Duplicate, FileSpec, Logger};
 use indicatif::{ProgressBar, ProgressStyle};
@@ -23,6 +27,7 @@ use std::{
 enum Method {
     Base64ct,
     Caesar,
+    ChaCha20Poly1305,
     Hex,
 }
 
@@ -36,6 +41,9 @@ impl FromStr for Method {
         match s.to_ascii_lowercase().as_str() {
             "base64ct" | "base64" => Ok(Method::Base64ct),
             "caesar" => Ok(Method::Caesar),
+            "chacha20poly1305" | "chacha" | "chacha20" | "chachapoly" => {
+                Ok(Method::ChaCha20Poly1305)
+            }
             "hex" => Ok(Method::Hex),
             _ => {
                 error!("{:?}: Unknown method", MethodError);
@@ -85,7 +93,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let list_flag = matches.get_flag("list");
 
     if list_flag {
-        // list all available encoding/decoding methods
+        // list all available en-/decoding // en-/decrypting methods
         list_methods();
     } else if let Some(arg) = matches.get_one::<String>("arg") {
         // get search path from arguments
@@ -96,6 +104,8 @@ fn main() -> Result<(), Box<dyn Error>> {
             process::exit(0);
         }
 
+        // TODO limit max filesize??
+
         // TODO use threading for multiple file input
         // TODO use multiple spinners
         // spinner
@@ -105,11 +115,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         pb.set_style(spinner_style);
 
         // start encoding / decoding
-        let content =
-            read_file_content(&path.to_path_buf()).expect("Error while reading content to file");
-
         if let Some(method) = matches.get_one::<String>("encode") {
             pb.set_message(format!("{}", "encoding...".truecolor(250, 0, 104)));
+
+            let content = read_file_content(&path.to_path_buf())?;
 
             let mut encoded = Vec::new();
             match method.parse::<Method>().unwrap() {
@@ -121,6 +130,10 @@ fn main() -> Result<(), Box<dyn Error>> {
                     let mut tmp_encoded_vec = encode_caesar(content)?;
                     encoded.append(&mut tmp_encoded_vec);
                 }
+                Method::ChaCha20Poly1305 => {
+                    let mut tmp_encoded_vec = encode_chacha20poly1305(content)?;
+                    encoded.append(&mut tmp_encoded_vec);
+                }
                 Method::Hex => {
                     let mut tmp_encoded_vec = encode_hex(content)?;
                     encoded.append(&mut tmp_encoded_vec);
@@ -128,28 +141,35 @@ fn main() -> Result<(), Box<dyn Error>> {
             }
 
             // write encrpyted content back to file
-            write_file_content(&path.to_path_buf(), &encoded).expect("Error while writing to file");
+            write_file_content(&path.to_path_buf(), &encoded)?;
         } else if let Some(method) = matches.get_one::<String>("decode") {
             pb.set_message(format!("{}", "decoding...".truecolor(250, 0, 104)));
 
             let mut decoded = Vec::new();
             match method.parse::<Method>().unwrap() {
                 Method::Base64ct => {
+                    let content = read_file_content(&path.to_path_buf())?;
                     let mut tmp_decoded_vec = decode_base64ct(content)?;
                     decoded.append(&mut tmp_decoded_vec);
                 }
                 Method::Caesar => {
+                    let content = read_file_content(&path.to_path_buf())?;
                     let mut tmp_decoded_vec = decode_caesar(content)?;
                     decoded.append(&mut tmp_decoded_vec);
                 }
+                Method::ChaCha20Poly1305 => {
+                    let mut tmp_decoded_vec = decode_chacha20poly1305(&path.to_path_buf())?;
+                    decoded.append(&mut tmp_decoded_vec);
+                }
                 Method::Hex => {
+                    let content = read_file_content(&path.to_path_buf())?;
                     let mut tmp_decoded_vec = decode_hex(content)?;
                     decoded.append(&mut tmp_decoded_vec);
                 }
             }
 
             // write decrpyted content back to file
-            write_file_content(&path.to_path_buf(), &decoded).expect("Error while writing to file");
+            write_file_content(&path.to_path_buf(), &decoded)?;
         } else {
             // TODO replace with something useful
             // TODO what should be the default command if nothing is specified?
@@ -157,6 +177,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             // info!("Type: 'gib help' to get more information");
             // process::exit(0);
 
+            // TODO use chacha instead???
             default_encoding(&path.to_path_buf())?;
         }
 
@@ -257,20 +278,17 @@ fn list_methods() {
     }
 }
 
-// encoding with base64 constant time
 fn encode_base64ct(content: String) -> io::Result<Vec<u8>> {
-    let encoded = Base64::encode_string(content.trim().to_string().as_bytes());
+    let encoded = Base64::encode_string(content.to_string().as_bytes());
 
     Ok(encoded.into_bytes())
 }
 
-// decoding base64 constant time
 fn decode_base64ct(content: String) -> io::Result<Vec<u8>> {
     let decoded = Base64::decode_vec(&content).expect("Error while decoding file");
     Ok(decoded)
 }
 
-// encoding with caesar cipher
 // based on https://github.com/TheAlgorithms/Rust
 fn encode_caesar(content: String) -> io::Result<Vec<u8>> {
     // TODO let user choose a key between 1 <= key <= 26
@@ -296,7 +314,6 @@ fn encode_caesar(content: String) -> io::Result<Vec<u8>> {
     Ok(encoded.into_bytes())
 }
 
-// decoding caesar cipher
 // based on https://github.com/TheAlgorithms/Rust
 fn decode_caesar(content: String) -> io::Result<Vec<u8>> {
     // TODO get key from user
@@ -322,7 +339,53 @@ fn decode_caesar(content: String) -> io::Result<Vec<u8>> {
     Ok(decoded.into_bytes())
 }
 
-// encoding with hex
+// FIXME decoding not possible -> why?
+fn encode_chacha20poly1305(content: String) -> io::Result<Vec<u8>> {
+    // WARNING fixed key size is not secure
+    let key: [u8; 32] = [
+        28, 208, 4, 133, 163, 199, 222, 23, 254, 125, 216, 218, 75, 134, 170, 213, 111, 99, 67, 84,
+        93, 182, 151, 190, 19, 188, 139, 248, 82, 71, 190, 216,
+    ];
+    let nonce: [u8; 12] = [118, 33, 119, 171, 18, 179, 245, 48, 254, 225, 153, 121];
+    // let nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng); // 96-bits; unique per message
+
+    let cipher = ChaCha20Poly1305::new((&key).into());
+    let encoded = cipher
+        // .encrypt(&nonce, content.as_ref())
+        .encrypt((&nonce).into(), content.as_ref())
+        .expect("Error while encoding file");
+
+    Ok(encoded)
+}
+
+// FIXME decoding not possible -> why?
+fn decode_chacha20poly1305(path: &PathBuf) -> io::Result<Vec<u8>> {
+    let file = fs::File::open(path)?;
+    let mut buf_reader = BufReader::new(file);
+    // read to Vec instead of String
+    let mut content = Vec::new();
+    buf_reader.read(&mut content)?;
+
+    // WARNING fixed key size is not secure
+    let key: [u8; 32] = [
+        28, 208, 4, 133, 163, 199, 222, 23, 254, 125, 216, 218, 75, 134, 170, 213, 111, 99, 67, 84,
+        93, 182, 151, 190, 19, 188, 139, 248, 82, 71, 190, 216,
+    ];
+    let nonce: [u8; 12] = [118, 33, 119, 171, 18, 179, 245, 48, 254, 225, 153, 121];
+    // let nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng); // 96-bits; unique per message
+
+    let cipher = ChaCha20Poly1305::new((&key).into());
+    let decoded = cipher
+        // .decrypt(&nonce, content.as_ref())
+        .decrypt((&nonce).into(), content.as_ref())
+        .unwrap_or_else(|err| {
+            error!("Error while decrypting file '{}': {}", path.display(), err);
+            process::exit(1);
+        });
+
+    Ok(decoded)
+}
+
 fn encode_hex(content: String) -> io::Result<Vec<u8>> {
     // TODO workaround: error in crate hex?
     // TODO remove later
@@ -333,7 +396,6 @@ fn encode_hex(content: String) -> io::Result<Vec<u8>> {
     Ok(encoded.into_bytes())
 }
 
-// decoding hex
 fn decode_hex(content: String) -> io::Result<Vec<u8>> {
     // TODO workaround: error in crate hex?
     // TODO remove later
@@ -345,23 +407,21 @@ fn decode_hex(content: String) -> io::Result<Vec<u8>> {
 }
 
 fn default_encoding(path: &PathBuf) -> io::Result<()> {
-    let content =
-        read_file_content(&path.to_path_buf()).expect("Error while reading content to file");
+    let content = read_file_content(&path.to_path_buf())?;
     let mut encoded_base64 = Vec::new();
     let mut tmp_base64_encoded_vec = encode_base64ct(content)?;
     encoded_base64.append(&mut tmp_base64_encoded_vec);
 
     // write encrpyted content back to file
-    write_file_content(&path.to_path_buf(), &encoded_base64).expect("Error while writing to file");
+    write_file_content(&path.to_path_buf(), &encoded_base64)?;
 
-    let content2 =
-        read_file_content(&path.to_path_buf()).expect("Error while reading content to file");
+    let content2 = read_file_content(&path.to_path_buf())?;
     let mut encoded_caesar = Vec::new();
     let mut tmp_caesar_encoded_vec = encode_caesar(content2)?;
     encoded_caesar.append(&mut tmp_caesar_encoded_vec);
 
     // write encrpyted content back to file
-    write_file_content(&path.to_path_buf(), &encoded_caesar).expect("Error while writing to file");
+    write_file_content(&path.to_path_buf(), &encoded_caesar)?;
 
     Ok(())
 }
@@ -372,7 +432,7 @@ fn read_file_content(path: &PathBuf) -> io::Result<String> {
     let mut content = String::new();
     buf_reader.read_to_string(&mut content)?;
 
-    Ok(content.trim().to_string())
+    Ok(content)
 }
 
 fn write_file_content(path: &PathBuf, content: &[u8]) -> io::Result<()> {
