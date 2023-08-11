@@ -350,6 +350,10 @@ fn decode_caesar(content: String) -> io::Result<Vec<u8>> {
 
 // encoding with hex
 fn encode_hex(content: String) -> io::Result<Vec<u8>> {
+    // TODO workaround: error in crate hex?
+    // TODO remove later
+    assert!(!content.contains("§"));
+
     let encoded = hex::encode(content.trim().to_string());
 
     Ok(encoded.into_bytes())
@@ -452,4 +456,121 @@ fn show_log_file(config_dir: &PathBuf) -> io::Result<String> {
             ))
         }
     }
+}
+
+#[test]
+fn encode_base64ct_test() {
+    assert_eq!(
+        encode_base64ct("This is a test".to_string()).unwrap(),
+        "VGhpcyBpcyBhIHRlc3Q=".as_bytes()
+    );
+}
+
+#[test]
+fn decode_base64ct_test() {
+    assert_eq!(
+        decode_base64ct("VGhpcyBpcyBhIHRlc3Q=".to_string()).unwrap(),
+        "This is a test".as_bytes()
+    );
+}
+
+#[test]
+fn encode_base64ct_special_chars_test() {
+    assert_eq!(
+        encode_base64ct("Random chars: !\"§$%&/()=?`+#*'-_~@".to_string()).unwrap(),
+        "UmFuZG9tIGNoYXJzOiAhIsKnJCUmLygpPT9gKyMqJy1ffkA=".as_bytes()
+    );
+}
+
+#[test]
+fn decode_base64ct_special_chars_test() {
+    assert_eq!(
+        decode_base64ct("UmFuZG9tIGNoYXJzOiAhIsKnJCUmLygpPT9gKyMqJy1ffkA=".to_string()).unwrap(),
+        "Random chars: !\"§$%&/()=?`+#*'-_~@".as_bytes()
+    );
+}
+
+#[test]
+fn encode_caesar_test() {
+    assert_eq!(
+        encode_caesar("This is a test".to_string()).unwrap(),
+        "Guvf vf n grfg".as_bytes()
+    );
+}
+
+#[test]
+fn decode_caesar_test() {
+    assert_eq!(
+        decode_caesar("Guvf vf n grfg".to_string()).unwrap(),
+        "This is a test".as_bytes()
+    );
+}
+
+#[test]
+fn encode_caesar_special_chars_test() {
+    assert_eq!(
+        encode_caesar("Random chars: !\"§$%&/()=?`+#*'-_~@".to_string()).unwrap(),
+        "Enaqbz punef: !\"§$%&/()=?`+#*'-_~@".as_bytes()
+    );
+}
+
+#[test]
+fn decode_caesar_special_chars_test() {
+    assert_eq!(
+        decode_caesar("Enaqbz punef: !\"§$%&/()=?`+#*'-_~@".to_string()).unwrap(),
+        "Random chars: !\"§$%&/()=?`+#*'-_~@".as_bytes()
+    );
+}
+
+#[test]
+fn encode_hex_test() {
+    assert_eq!(
+        encode_hex("This is a test".to_string()).unwrap(),
+        "5468697320697320612074657374".as_bytes()
+    );
+}
+
+#[test]
+fn decode_hex_test() {
+    assert_eq!(
+        decode_hex("5468697320697320612074657374".to_string()).unwrap(),
+        "This is a test".as_bytes()
+    );
+}
+
+#[test]
+fn encode_hex_special_chars_test() {
+    assert_eq!(
+        // FIXME fails with §
+        // see encode_hex_special_chars_test_2
+        encode_hex("Random chars: !\"$%&/()=?`+#*'-_~@".to_string()).unwrap(),
+        "52616e646f6d2063686172733a2021222425262f28293d3f602b232a272d5f7e40".as_bytes()
+    );
+}
+
+#[test]
+fn decode_hex_special_chars_test() {
+    assert_eq!(
+        // FIXME fails with §
+        // see decode_hex_special_chars_test_2
+        decode_hex(
+            "52616e646f6d2063686172733a2021222425262f28293d3f602b232a272d5f7e40".to_string()
+        )
+        .unwrap(),
+        "Random chars: !\"$%&/()=?`+#*'-_~@".as_bytes()
+    );
+}
+
+#[test]
+// FIXME
+// error in hex crate ???
+fn encode_hex_special_chars_test_2() {
+    assert_eq!(encode_hex("§".to_string()).unwrap(), "a7".as_bytes());
+}
+
+#[test]
+// FIXME
+// error in hex crate ???
+fn decode_hex_special_chars_test_2() {
+    assert_eq!(decode_hex("a7".to_string()).unwrap(), "§".as_bytes());
 }
