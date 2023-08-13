@@ -7,7 +7,6 @@ edition = "2021"
 
 [dependencies]
 base64ct = {version = "1.6.0", features = ["alloc"]}
-chacha20poly1305 = "0.10.1"
 clap = "4.3.21"
 ctrlc = "3.4.0"
 dirs = "5.0.1"
