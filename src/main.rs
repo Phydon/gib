@@ -1,8 +1,9 @@
+use argon2::{self, Config};
 use base64ct::{Base64, Encoding};
 use clap::{Arg, ArgAction, Command};
 use flexi_logger::{detailed_format, Duplicate, FileSpec, Logger};
 use indicatif::{ProgressBar, ProgressStyle};
-use log::{error, info};
+use log::{error, info, warn};
 use owo_colors::colored::*;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
@@ -10,12 +11,23 @@ use strum_macros::EnumIter;
 use std::{
     error::Error,
     fs,
-    io::{self, BufReader, Read, Write},
+    io::{self, BufRead, BufReader, Write},
     path::{Path, PathBuf},
     process,
     str::FromStr,
     time::Duration,
 };
+
+const SPINNER_BINARY: &[&str; 10] = &[
+    "010010", "001100", "100101", "111010", "111101", "010111", "101011", "111000", "110011",
+    "110101",
+];
+const SPINNER_DOTS: &[&str; 56] = &[
+    "⢀⠀", "⡀⠀", "⠄⠀", "⢂⠀", "⡂⠀", "⠅⠀", "⢃⠀", "⡃⠀", "⠍⠀", "⢋⠀", "⡋⠀", "⠍⠁", "⢋⠁", "⡋⠁", "⠍⠉", "⠋⠉",
+    "⠋⠉", "⠉⠙", "⠉⠙", "⠉⠩", "⠈⢙", "⠈⡙", "⢈⠩", "⡀⢙", "⠄⡙", "⢂⠩", "⡂⢘", "⠅⡘", "⢃⠨", "⡃⢐", "⠍⡐", "⢋⠠",
+    "⡋⢀", "⠍⡁", "⢋⠁", "⡋⠁", "⠍⠉", "⠋⠉", "⠋⠉", "⠉⠙", "⠉⠙", "⠉⠩", "⠈⢙", "⠈⡙", "⠈⠩", "⠀⢙", "⠀⡙", "⠀⠩",
+    "⠀⢘", "⠀⡘", "⠀⠨", "⠀⢐", "⠀⡐", "⠀⠠", "⠀⢀", "⠀⡀",
+];
 
 // TODO add more methods
 // available methods for en-/decoding // en-/decrypting
@@ -24,6 +36,7 @@ enum Method {
     Base64ct,
     Caesar,
     Hex,
+    Testing,
 }
 
 #[derive(Debug)]
@@ -37,6 +50,7 @@ impl FromStr for Method {
             "base64ct" | "base64" => Ok(Method::Base64ct),
             "caesar" => Ok(Method::Caesar),
             "hex" => Ok(Method::Hex),
+            "test" | "testing" => Ok(Method::Testing),
             _ => {
                 error!("{:?}: Unknown method", MethodError);
                 info!("Type: 'gib --list' to see all available methods");
@@ -83,6 +97,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     // handle arguments
     let matches = gib().get_matches();
     let list_flag = matches.get_flag("list");
+    let password_flag = matches.get_flag("password");
 
     if list_flag {
         // list all available en-/decoding // en-/decrypting methods
@@ -108,9 +123,20 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         // start encoding / decoding
         if let Some(method) = matches.get_one::<String>("encode") {
+            let mut hash = String::new();
+            if password_flag {
+                let password = prompt_user_for_pw(pb.clone());
+                let hash_string = calculate_hash(pb.clone(), password);
+                hash.push_str(&hash_string);
+            }
+
+            let encoding_spinner_style = ProgressStyle::with_template("{spinner:.red} {msg}")
+                .unwrap()
+                .tick_strings(SPINNER_DOTS);
+            pb.set_style(encoding_spinner_style);
             pb.set_message(format!("{}", "encoding...".truecolor(250, 0, 104)));
 
-            let content = read_file_content(&path.to_path_buf())?;
+            let (_, content) = read_file_content(&path.to_path_buf())?;
 
             let mut encoded = Vec::new();
             match method.parse::<Method>().unwrap() {
@@ -126,38 +152,59 @@ fn main() -> Result<(), Box<dyn Error>> {
                     let mut hex_encoded_vec = encode_hex(content)?;
                     encoded.append(&mut hex_encoded_vec);
                 }
+                Method::Testing => {
+                    let mut testing_encoded_vec = encode_testing(content)?;
+                    encoded.append(&mut testing_encoded_vec);
+                }
             }
 
             // write encoded / encrpyted content back to file
-            write_file_content(&path.to_path_buf(), &encoded)?;
+            write_file_content(&path.to_path_buf(), hash, &encoded)?;
         } else if let Some(method) = matches.get_one::<String>("decode") {
-            pb.set_message(format!("{}", "decoding...".truecolor(250, 0, 104)));
-
             // non utf-8 data could be written via encrypting methods
             // reading the encoded / encrypted content from the file must be handle
             // seperatly for every decoding / decrypting method
             // incase non utf-8 data from the file should be handle differently
+            let (hash, content) = read_file_content(&path.to_path_buf())?;
+
+            if password_flag {
+                let password = prompt_user_for_pw(pb.clone());
+                let verification = verify_hash(pb.clone(), hash, password);
+                if !verification {
+                    warn!("Couldn`t verify password");
+                    process::exit(0);
+                }
+            }
+
+            let decoding_spinner_style = ProgressStyle::with_template("{spinner:.red} {msg}")
+                .unwrap()
+                .tick_strings(SPINNER_DOTS);
+            pb.set_style(decoding_spinner_style);
+            pb.set_message(format!("{}", "decoding...".truecolor(250, 0, 104)));
+
             let mut decoded = Vec::new();
             match method.parse::<Method>().unwrap() {
                 Method::Base64ct => {
-                    let content = read_file_content(&path.to_path_buf())?;
                     let mut base64ct_decoded_vec = decode_base64ct(content)?;
                     decoded.append(&mut base64ct_decoded_vec);
                 }
                 Method::Caesar => {
-                    let content = read_file_content(&path.to_path_buf())?;
                     let mut caesar_decoded_vec = decode_caesar(content)?;
                     decoded.append(&mut caesar_decoded_vec);
                 }
                 Method::Hex => {
-                    let content = read_file_content(&path.to_path_buf())?;
                     let mut hex_decoded_vec = decode_hex(content)?;
                     decoded.append(&mut hex_decoded_vec);
+                }
+                Method::Testing => {
+                    let mut testing_decoded_vec = decode_testing(content)?;
+                    decoded.append(&mut testing_decoded_vec);
                 }
             }
 
             // write decoded / decrpyted content back to file
-            write_file_content(&path.to_path_buf(), &decoded)?;
+            let empty_hash = String::new();
+            write_file_content(&path.to_path_buf(), empty_hash, &decoded)?;
         } else {
             // TODO what should be the default command if nothing is specified?
             // info!("Usage: 'gib [OPTIONS] [PATH] [COMMAND]'");
@@ -250,6 +297,14 @@ fn gib() -> Command {
                 .action(ArgAction::SetTrue)
                 .conflicts_with_all(["decode", "encode"]),
         )
+        .arg(
+            Arg::new("password")
+                .short('p')
+                .long("password")
+                .help("Secure a file with a password")
+                .action(ArgAction::SetTrue)
+                .conflicts_with("list"),
+        )
         .subcommand(
             Command::new("log")
                 .short_flag('L')
@@ -263,6 +318,46 @@ fn list_methods() {
     for method in Method::iter() {
         println!("{:?}", method);
     }
+}
+
+fn prompt_user_for_pw(pb: ProgressBar) -> String {
+    pb.suspend(|| {
+        println!("Enter password:");
+    });
+    let pw_spin_style = ProgressStyle::with_template("{spinner:.black} {msg}").unwrap();
+    pb.set_style(pw_spin_style.tick_chars("⬛⬛⬛⬛"));
+
+    let mut input = String::new();
+    io::stdin()
+        .read_line(&mut input)
+        .expect("Failed to read input");
+
+    input
+}
+
+fn calculate_hash(pb: ProgressBar, password: String) -> String {
+    let calc_hash_spin_style = ProgressStyle::with_template("{spinner:.white} {msg}").unwrap();
+    pb.set_style(calc_hash_spin_style.tick_strings(SPINNER_BINARY));
+
+    pb.set_message(format!("{}", "calculating hash ...".truecolor(250, 0, 104)));
+
+    let salt = b"gibberish_salt";
+    let config = Config::rfc9106();
+    let hash =
+        argon2::hash_encoded(password.as_bytes(), salt, &config).expect("Unable to hash password");
+
+    hash
+}
+
+fn verify_hash(pb: ProgressBar, hash: String, password: String) -> bool {
+    let verify_hash_spin_style = ProgressStyle::with_template("{spinner:.white} {msg}").unwrap();
+    pb.set_style(verify_hash_spin_style.tick_strings(SPINNER_BINARY));
+    pb.set_message(format!("{}", "verifying hash ...".truecolor(250, 0, 104)));
+
+    let matches =
+        argon2::verify_encoded(&hash, password.as_bytes()).expect("Unable to verify hash");
+
+    matches
 }
 
 fn encode_base64ct(content: String) -> io::Result<Vec<u8>> {
@@ -346,40 +441,76 @@ fn decode_hex(content: String) -> io::Result<Vec<u8>> {
 }
 
 fn default_encoding(path: &PathBuf) -> io::Result<()> {
-    let content = read_file_content(&path.to_path_buf())?;
+    let hash = String::new();
+    let (_, content) = read_file_content(&path.to_path_buf())?;
     let mut encoded_base64 = Vec::new();
     let mut tmp_base64_encoded_vec = encode_base64ct(content)?;
     encoded_base64.append(&mut tmp_base64_encoded_vec);
 
     // write encrpyted content back to file
-    write_file_content(&path.to_path_buf(), &encoded_base64)?;
+    write_file_content(&path.to_path_buf(), hash.clone(), &encoded_base64)?;
 
-    let content2 = read_file_content(&path.to_path_buf())?;
+    let (_, content2) = read_file_content(&path.to_path_buf())?;
     let mut encoded_caesar = Vec::new();
     let mut tmp_caesar_encoded_vec = encode_caesar(content2)?;
     encoded_caesar.append(&mut tmp_caesar_encoded_vec);
 
     // write encrpyted content back to file
-    write_file_content(&path.to_path_buf(), &encoded_caesar)?;
+    write_file_content(&path.to_path_buf(), hash, &encoded_caesar)?;
 
     Ok(())
 }
 
-fn read_file_content(path: &PathBuf) -> io::Result<String> {
-    let file = fs::File::open(path)?;
-    let mut buf_reader = BufReader::new(file);
-    let mut content = String::new();
-    buf_reader.read_to_string(&mut content)?;
-
-    Ok(content)
+// for testing only -> remove later
+fn encode_testing(_content: String) -> io::Result<Vec<u8>> {
+    unimplemented!()
 }
 
-fn write_file_content(path: &PathBuf, content: &[u8]) -> io::Result<()> {
+// for testing only -> remove later
+fn decode_testing(_content: String) -> io::Result<Vec<u8>> {
+    unimplemented!()
+}
+
+fn read_file_content(path: &PathBuf) -> io::Result<(String, String)> {
+    let file = fs::File::open(path)?;
+    let buf_reader = BufReader::new(file);
+    let mut buffer_lines = buf_reader
+        .lines()
+        .map(|line| line.expect("Failed to read line in encoded file"));
+
+    let first_line: String = buffer_lines.next().unwrap().parse().unwrap();
+    let rest: String = buffer_lines.collect();
+
+    let mut hash = String::new();
+    let mut content = String::new();
+    if first_line.contains("$argon2id$v=19$m=2097152,t=1,p=1") {
+        hash.push_str(&first_line);
+        content.push_str(&rest);
+    } else {
+        content.push_str(&first_line);
+
+        if !rest.is_empty() {
+            // TODO remove??
+            // content.push_str("\n");
+            content.push_str(&rest);
+        }
+    }
+
+    Ok((hash, content))
+}
+
+fn write_file_content(path: &PathBuf, hash: String, content: &[u8]) -> io::Result<()> {
     let mut newfile = fs::OpenOptions::new()
         .write(true)
         .truncate(true)
         .create(true)
         .open(path)?;
+
+    if !hash.is_empty() {
+        newfile.write_all(hash.as_bytes())?;
+        newfile.write_all("\n".as_bytes())?;
+    }
+
     newfile.write_all(&content)?;
 
     Ok(())
