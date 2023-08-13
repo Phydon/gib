@@ -248,7 +248,7 @@ fn gib() -> Command {
             "GIB".bold().truecolor(250, 0, 104),
             "Leann Phydon <leann.phydon@gmail.com>".italic().dimmed()
         ))
-        .about("Encode / Decode files")
+        .about("En-/Decode // En-/Decrypt files")
         .before_long_help(format!(
             "{}\n{}",
             "GIB".bold().truecolor(250, 0, 104),
@@ -479,6 +479,7 @@ fn read_file_content(path: &PathBuf) -> io::Result<(String, String)> {
         .map(|line| line.expect("Failed to read line in encoded file"));
 
     let first_line: String = buffer_lines.next().unwrap().parse().unwrap();
+    // FIXME removes newlines ('\n') ???
     let rest: String = buffer_lines.collect();
 
     let mut hash = String::new();
@@ -490,8 +491,9 @@ fn read_file_content(path: &PathBuf) -> io::Result<(String, String)> {
         content.push_str(&first_line);
 
         if !rest.is_empty() {
-            // TODO remove??
-            // content.push_str("\n");
+            // FIXME only the second line is on a new line
+            // FIXME everything else is written without any new line
+            content.push_str("\n");
             content.push_str(&rest);
         }
     }
