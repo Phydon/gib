@@ -28,6 +28,8 @@ const SPINNER_DOTS: &[&str; 56] = &[
     "⡋⢀", "⠍⡁", "⢋⠁", "⡋⠁", "⠍⠉", "⠋⠉", "⠋⠉", "⠉⠙", "⠉⠙", "⠉⠩", "⠈⢙", "⠈⡙", "⠈⠩", "⠀⢙", "⠀⡙", "⠀⠩",
     "⠀⢘", "⠀⡘", "⠀⠨", "⠀⢐", "⠀⡐", "⠀⠠", "⠀⢀", "⠀⡀",
 ];
+const SPINNER_NOISE: &[&str; 3] = &["▓", "▒", "░"];
+const SPINNER_TOOGLE: &[&str; 3] = &["㊂", "㊀", "㊁"];
 
 // TODO add more methods
 // available methods for en-/decoding // en-/decrypting
