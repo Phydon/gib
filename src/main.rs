@@ -15,7 +15,6 @@ use std::{
     path::{Path, PathBuf},
     process,
     str::FromStr,
-    thread,
     time::Duration,
 };
 
@@ -142,7 +141,6 @@ fn main() -> Result<(), Box<dyn Error>> {
                             "{}",
                             "Passwords didn`t match. Try again".truecolor(250, 0, 104)
                         );
-                        thread::sleep(Duration::from_millis(1200));
                     });
                 }
 
@@ -344,11 +342,14 @@ fn prompt_user_for_pw(pb: ProgressBar, msg: String) -> String {
     });
     let pw_spin_style = ProgressStyle::with_template("{spinner:.black} {msg}").unwrap();
     pb.set_style(pw_spin_style.tick_chars("⬛⬛⬛⬛"));
+    pb.enable_steady_tick(Duration::from_millis(20));
 
     let mut input = String::new();
     io::stdin()
         .read_line(&mut input)
         .expect("Failed to read input");
+
+    pb.enable_steady_tick(Duration::from_millis(120));
 
     input
 }
