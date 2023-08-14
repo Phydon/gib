@@ -9,6 +9,7 @@ use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
 use std::{
+    collections::HashMap,
     error::Error,
     fs,
     io::{self, BufRead, BufReader, Write},
@@ -67,8 +68,8 @@ impl FromStr for Method {
 
 #[derive(Debug, Clone)]
 enum L33t {
-    Hard, // replace every possible char with l33t alphabet
-    Soft, // replace random chars with l33t alphabet
+    Hard,
+    Soft,
 }
 
 #[derive(Debug)]
@@ -209,7 +210,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 Method::L33t => {
                     // there should always be at least the default mode
                     if let Some(mode) = matches.get_one::<String>("l33t") {
-                        let mut l33t_encoded_vec = encode_l33t(content, mode)?;
+                        let mut l33t_encoded_vec = encode_decode_l33t(content, mode)?;
                         encoded.append(&mut l33t_encoded_vec);
                     }
                 }
@@ -259,7 +260,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 Method::L33t => {
                     // there should always be at least the default mode
                     if let Some(mode) = matches.get_one::<String>("l33t") {
-                        let mut l33t_decoded_vec = decode_l33t(content, mode)?;
+                        let mut l33t_decoded_vec = encode_decode_l33t(content, mode)?;
                         decoded.append(&mut l33t_decoded_vec);
                     }
                 }
@@ -466,6 +467,7 @@ fn decode_base64ct(content: String) -> io::Result<Vec<u8>> {
 // based on https://github.com/TheAlgorithms/Rust
 fn encode_caesar(content: String) -> io::Result<Vec<u8>> {
     // TODO let user choose a key between 1 <= key <= 26
+    // key = 13 == ROT13 (encrypting and decrypting is its own inverse)
     let key: u8 = 13;
     assert!(key <= 26 && key >= 1);
 
@@ -491,6 +493,7 @@ fn encode_caesar(content: String) -> io::Result<Vec<u8>> {
 // based on https://github.com/TheAlgorithms/Rust
 fn decode_caesar(content: String) -> io::Result<Vec<u8>> {
     // TODO get key from user
+    // key = 13 == ROT13 (encrypting and decrypting is its own inverse)
     let key: u8 = 13;
     assert!(key <= 26 && key >= 1);
 
@@ -533,38 +536,106 @@ fn decode_hex(content: String) -> io::Result<Vec<u8>> {
     Ok(decoded)
 }
 
-// TODO
-fn encode_l33t(content: String, mode: &String) -> io::Result<Vec<u8>> {
-    match mode.parse::<L33t>().unwrap() {
-        // replace every possible char with l33t alphabet
-        L33t::Hard => {
-            println!("HARD");
-        }
-        // replace random chars with l33t alphabet
-        L33t::Soft => {
-            println!("SOFT");
-        }
-    }
+// TODO convert char to l33t
+fn l33t_alphabet_hard() -> HashMap<&'static str, &'static str> {
+    let l33t_alphabet: HashMap<&'static str, &'static str> = HashMap::from([
+        ("a", "4"),
+        ("b", "8"),
+        ("c", "{"),
+        ("e", "3"),
+        ("g", "6"),
+        ("h", "#"),
+        ("i", "!"),
+        ("l", "1"),
+        ("o", "0"),
+        ("p", "9"),
+        ("q", "o"),
+        ("s", "5"),
+        ("t", "7"),
+        ("x", "%"),
+        ("z", "2"),
+        ("1", "l"),
+        ("2", "z"),
+        ("3", "e"),
+        ("4", "a"),
+        ("5", "s"),
+        ("6", "g"),
+        ("7", "t"),
+        ("8", "b"),
+        ("9", "p"),
+        ("0", "o"),
+        ("(", ")"),
+        (")", "("),
+        ("!", "i"),
+        ("#", "h"),
+        ("{", "c"),
+    ]);
 
-    let encoded = String::new();
-    Ok(encoded.into_bytes())
+    l33t_alphabet
 }
 
-// TODO
-fn decode_l33t(content: String, mode: &String) -> io::Result<Vec<u8>> {
+// TODO convert char to l33t soft
+fn l33t_alphabet_soft() -> HashMap<&'static str, &'static str> {
+    let l33t_alphabet: HashMap<&'static str, &'static str> = HashMap::from([
+        ("a", "4"),
+        ("b", "8"),
+        ("e", "3"),
+        ("g", "6"),
+        ("i", "!"),
+        ("l", "1"),
+        ("o", "0"),
+        ("s", "5"),
+        ("t", "7"),
+        ("z", "2"),
+        ("1", "l"),
+        ("2", "z"),
+        ("3", "e"),
+        ("4", "a"),
+        ("5", "s"),
+        ("6", "g"),
+        ("7", "t"),
+        ("8", "b"),
+        ("0", "o"),
+        ("!", "i"),
+    ]);
+
+    l33t_alphabet
+}
+
+// TODO add tests
+fn encode_decode_l33t(content: String, mode: &String) -> io::Result<Vec<u8>> {
+    let mut encoded = String::new();
     match mode.parse::<L33t>().unwrap() {
-        // replace every possible char with l33t alphabet
+        // TODO check if working correctly
         L33t::Hard => {
-            println!("HARD");
+            let l33t_alphabet = l33t_alphabet_hard();
+            let l33t_content: String = content
+                .chars()
+                .map(|char| {
+                    l33t_alphabet
+                        .get(char.to_string().as_str())
+                        .unwrap_or(&char.to_string().as_str())
+                        .to_string()
+                })
+                .collect();
+            encoded.push_str(&l33t_content);
         }
-        // replace random chars with l33t alphabet
         L33t::Soft => {
-            println!("SOFT");
+            let l33t_alphabet = l33t_alphabet_soft();
+            let l33t_content: String = content
+                .chars()
+                .map(|char| {
+                    l33t_alphabet
+                        .get(char.to_string().as_str())
+                        .unwrap_or(&char.to_string().as_str())
+                        .to_string()
+                })
+                .collect();
+            encoded.push_str(&l33t_content);
         }
     }
 
-    let decoded = String::new();
-    Ok(decoded.into_bytes())
+    Ok(encoded.into_bytes())
 }
 
 fn default_encoding(path: &PathBuf) -> io::Result<()> {
