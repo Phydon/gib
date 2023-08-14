@@ -138,7 +138,10 @@ fn main() -> Result<(), Box<dyn Error>> {
                     }
 
                     pb.suspend(|| {
-                        println!("Passwords didn`t match. Try again");
+                        println!(
+                            "{}",
+                            "Passwords didn`t match. Try again".truecolor(250, 0, 104)
+                        );
                         thread::sleep(Duration::from_millis(1200));
                     });
                 }
@@ -178,10 +181,9 @@ fn main() -> Result<(), Box<dyn Error>> {
             // write encoded / encrpyted content back to file
             write_file_content(&path.to_path_buf(), hash, &encoded)?;
         } else if let Some(method) = matches.get_one::<String>("decode") {
-            // non utf-8 data could be written via encrypting methods
-            // reading the encoded / encrypted content from the file must be handle
-            // seperatly for every decoding / decrypting method
-            // incase non utf-8 data from the file should be handle differently
+            // non utf-8 data could be written to file via encrypting methods
+            // -> reading the encoded / encrypted content from the file must be handled
+            // seperatly incase non utf-8 data from the file should be handled differently
             let (hash, content) = read_file_content(&path.to_path_buf(), CodingMethod::Decoding)?;
 
             if password_flag {
@@ -228,7 +230,6 @@ fn main() -> Result<(), Box<dyn Error>> {
             // info!("Type: 'gib help' to get more information");
             // process::exit(0);
 
-            // TODO use chacha instead???
             default_encoding(&path.to_path_buf())?;
         }
 
@@ -439,8 +440,8 @@ fn decode_caesar(content: String) -> io::Result<Vec<u8>> {
 
 fn encode_hex(content: String) -> io::Result<Vec<u8>> {
     // TODO error in crate hex?
-    // TODO unable to convert '§' <-> 'a7'
-    // TODO remove later
+    // unable to convert '§' <-> 'a7'
+    // remove later
     assert!(!content.contains("§"));
 
     let encoded = hex::encode(content.trim().to_string());
@@ -450,7 +451,7 @@ fn encode_hex(content: String) -> io::Result<Vec<u8>> {
 
 fn decode_hex(content: String) -> io::Result<Vec<u8>> {
     // TODO error in crate hex?
-    // TODO unable to convert '§' <-> 'a7'
+    // unable to convert '§' <-> 'a7'
 
     let decoded = hex::decode(&content).expect("Error while decoding file");
 
@@ -496,6 +497,7 @@ fn read_file_content(path: &PathBuf, codingmethod: CodingMethod) -> io::Result<(
         .map(|line| line.expect("Failed to read line in encoded file"));
 
     let first_line: String = buffer_lines.next().unwrap().parse().unwrap();
+
     let mut rest = String::new();
     for line in buffer_lines {
         rest.push_str(&line);
