@@ -23,6 +23,7 @@ const SPINNER_BINARY: &[&str; 10] = &[
     "110101",
 ];
 const SPINNER_ARC: &[&str; 6] = &["◜", "◠", "◝", "◞", "◡", "◟"];
+const SPINNER_DOTS: &[&str; 8] = &[".  ", ".. ", "...", "   ", "  .", " ..", "...", "   "];
 
 enum CodingMethod {
     Decoding,
@@ -98,6 +99,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let matches = gib().get_matches();
     let list_flag = matches.get_flag("list");
     let password_flag = matches.get_flag("password");
+    let copy_flag = matches.get_flag("copy");
 
     if list_flag {
         // list all available en-/decoding // en-/decrypting methods
@@ -120,6 +122,11 @@ fn main() -> Result<(), Box<dyn Error>> {
         let pb = ProgressBar::new_spinner();
         pb.enable_steady_tick(Duration::from_millis(120));
         pb.set_style(spinner_style);
+
+        // handle copy flag
+        if copy_flag {
+            make_file_copy(pb.clone(), &path.to_path_buf(), &config_dir)?;
+        }
 
         // start encoding / decoding
         if let Some(method) = matches.get_one::<String>("encode") {
@@ -228,6 +235,10 @@ fn main() -> Result<(), Box<dyn Error>> {
             // info!("Type: 'gib help' to get more information");
             // process::exit(0);
 
+            // make copy in config directory
+            make_file_copy(pb.clone(), &path.to_path_buf(), &config_dir)?;
+
+            // default encoding
             default_encoding(&path.to_path_buf())?;
         }
 
@@ -287,13 +298,22 @@ fn gib() -> Command {
                 .value_names(["PATH"]),
         )
         .arg(
+            Arg::new("copy")
+                .short('c')
+                .long("copy")
+                .help("Create a copy of the file")
+                .long_help("Create a copy of the file in the config directory")
+                .action(ArgAction::SetTrue)
+                .conflicts_with("list"),
+        )
+        .arg(
             Arg::new("decode")
                 .short('d')
                 .long("decode")
                 .help("Decode/Decrypt the file")
                 .action(ArgAction::Set)
                 .num_args(1)
-                .value_name("Decoding/Decrypting method")
+                .value_name("DECODING/DECRYPTING METHOD")
                 .conflicts_with("encode"),
         )
         .arg(
@@ -303,7 +323,7 @@ fn gib() -> Command {
                 .help("Encode/Encrypt the file")
                 .action(ArgAction::Set)
                 .num_args(1)
-                .value_name("Encoding/Encrypting method"),
+                .value_name("ENCODING/ENCRYPTING METHOD"),
         )
         .arg(
             Arg::new("list")
@@ -527,7 +547,7 @@ fn read_file_content(path: &PathBuf, codingmethod: CodingMethod) -> io::Result<(
 }
 
 fn write_file_content(path: &PathBuf, hash: String, content: &[u8]) -> io::Result<()> {
-    // FIXME when decoding hex -> no new lines
+    // FIXME when decoding hex / caesar -> no new lines
     let mut newfile = fs::OpenOptions::new()
         .write(true)
         .truncate(true)
@@ -540,6 +560,33 @@ fn write_file_content(path: &PathBuf, hash: String, content: &[u8]) -> io::Resul
     }
 
     newfile.write_all(&content)?;
+
+    Ok(())
+}
+
+// TODO replace with crate fs_extra when working with directories
+// make copy in config directory
+fn make_file_copy(pb: ProgressBar, source_path: &PathBuf, config_dir: &PathBuf) -> io::Result<()> {
+    let pw_spin_style = ProgressStyle::with_template("{spinner:.red} {msg}").unwrap();
+    pb.set_style(pw_spin_style.tick_strings(SPINNER_DOTS));
+    pb.set_message(format!("{}", "copying file ...".truecolor(250, 0, 104)));
+
+    // get config dir
+    let mut dest = PathBuf::new();
+    dest.push(config_dir);
+    // get filename and prepend 'copy_of_'
+    let mut filename = "copy_of_".to_string();
+    let name = source_path
+        .file_name()
+        .unwrap()
+        .to_string_lossy()
+        .to_string();
+    filename.push_str(&name);
+    // join config dir and new filename
+    let dest_path = dest.join(filename);
+
+    // copy source to destination
+    fs::copy(source_path, dest_path)?;
 
     Ok(())
 }
