@@ -34,9 +34,12 @@ enum CodingMethod {
 // available methods for en-/decoding // en-/decrypting
 #[derive(Debug, EnumIter)]
 enum Method {
+    // AutoKey,
     Base64ct,
     Caesar,
+    // ColumnarTransposition,
     Hex,
+    L33t,
     Testing,
 }
 
@@ -51,10 +54,36 @@ impl FromStr for Method {
             "base64ct" | "base64" => Ok(Method::Base64ct),
             "caesar" => Ok(Method::Caesar),
             "hex" => Ok(Method::Hex),
+            "l33t" | "1337" | "leet" => Ok(Method::L33t),
             "test" | "testing" => Ok(Method::Testing),
             _ => {
                 error!("{:?}: Unknown method", MethodError);
                 info!("Type: 'gib --list' to see all available methods");
+                process::exit(0);
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+enum L33t {
+    Hard, // replace every possible char with l33t alphabet
+    Soft, // replace random chars with l33t alphabet
+}
+
+#[derive(Debug)]
+struct L33tError;
+
+impl FromStr for L33t {
+    type Err = L33tError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_ascii_lowercase().as_str() {
+            "hard" => Ok(L33t::Hard),
+            "soft" => Ok(L33t::Soft),
+            _ => {
+                error!("{:?}: Unknown l33t mode", L33tError);
+                info!("Available l33t modes: soft (default) & hard");
                 process::exit(0);
             }
         }
@@ -177,6 +206,13 @@ fn main() -> Result<(), Box<dyn Error>> {
                     let mut hex_encoded_vec = encode_hex(content)?;
                     encoded.append(&mut hex_encoded_vec);
                 }
+                Method::L33t => {
+                    // there should always be at least the default mode
+                    if let Some(mode) = matches.get_one::<String>("l33t") {
+                        let mut l33t_encoded_vec = encode_l33t(content, mode)?;
+                        encoded.append(&mut l33t_encoded_vec);
+                    }
+                }
                 Method::Testing => {
                     let mut testing_encoded_vec = encode_testing(content)?;
                     encoded.append(&mut testing_encoded_vec);
@@ -219,6 +255,13 @@ fn main() -> Result<(), Box<dyn Error>> {
                 Method::Hex => {
                     let mut hex_decoded_vec = decode_hex(content)?;
                     decoded.append(&mut hex_decoded_vec);
+                }
+                Method::L33t => {
+                    // there should always be at least the default mode
+                    if let Some(mode) = matches.get_one::<String>("l33t") {
+                        let mut l33t_decoded_vec = decode_l33t(content, mode)?;
+                        decoded.append(&mut l33t_decoded_vec);
+                    }
                 }
                 Method::Testing => {
                     let mut testing_decoded_vec = decode_testing(content)?;
@@ -287,7 +330,7 @@ fn gib() -> Command {
             "Quickly en-/decode // en-/decrypt files 'on the fly'",
         ))
         // TODO update version
-        .version("1.1.0")
+        .version("1.2.0")
         .author("Leann Phydon <leann.phydon@gmail.com>")
         .arg_required_else_help(true)
         .arg(
@@ -324,6 +367,17 @@ fn gib() -> Command {
                 .action(ArgAction::Set)
                 .num_args(1)
                 .value_name("ENCODING/ENCRYPTING METHOD"),
+        )
+        .arg(
+            Arg::new("l33t")
+                .short('3')
+                .long("l33t")
+                .help("Set l33t mode")
+                .action(ArgAction::Set)
+                .num_args(1)
+                .value_name("Mode")
+                .value_parser(["soft", "hard"])
+                .default_value("soft"),
         )
         .arg(
             Arg::new("list")
@@ -479,6 +533,40 @@ fn decode_hex(content: String) -> io::Result<Vec<u8>> {
     Ok(decoded)
 }
 
+// TODO
+fn encode_l33t(content: String, mode: &String) -> io::Result<Vec<u8>> {
+    match mode.parse::<L33t>().unwrap() {
+        // replace every possible char with l33t alphabet
+        L33t::Hard => {
+            println!("HARD");
+        }
+        // replace random chars with l33t alphabet
+        L33t::Soft => {
+            println!("SOFT");
+        }
+    }
+
+    let encoded = String::new();
+    Ok(encoded.into_bytes())
+}
+
+// TODO
+fn decode_l33t(content: String, mode: &String) -> io::Result<Vec<u8>> {
+    match mode.parse::<L33t>().unwrap() {
+        // replace every possible char with l33t alphabet
+        L33t::Hard => {
+            println!("HARD");
+        }
+        // replace random chars with l33t alphabet
+        L33t::Soft => {
+            println!("SOFT");
+        }
+    }
+
+    let decoded = String::new();
+    Ok(decoded.into_bytes())
+}
+
 fn default_encoding(path: &PathBuf) -> io::Result<()> {
     let hash = String::new();
     let (_, content) = read_file_content(&path.to_path_buf(), CodingMethod::Encoding)?;
@@ -511,13 +599,23 @@ fn decode_testing(_content: String) -> io::Result<Vec<u8>> {
 }
 
 fn read_file_content(path: &PathBuf, codingmethod: CodingMethod) -> io::Result<(String, String)> {
+    let file_size = fs::metadata(path)?.len();
+    if file_size <= 0 {
+        warn!("The file is emtpy");
+        process::exit(0);
+    }
+
     let file = fs::File::open(path)?;
     let buf_reader = BufReader::new(file);
     let mut buffer_lines = buf_reader
         .lines()
         .map(|line| line.expect("Failed to read line in encoded file"));
 
-    let first_line: String = buffer_lines.next().unwrap().parse().unwrap();
+    let first_line: String = buffer_lines
+        .next()
+        .expect("The file shouldn`t be empty")
+        .parse()
+        .unwrap();
 
     let mut rest = String::new();
     for line in buffer_lines {
@@ -564,7 +662,6 @@ fn write_file_content(path: &PathBuf, hash: String, content: &[u8]) -> io::Resul
     Ok(())
 }
 
-// TODO replace with crate fs_extra when working with directories
 // make copy in config directory
 fn make_file_copy(pb: ProgressBar, source_path: &PathBuf, config_dir: &PathBuf) -> io::Result<()> {
     let pw_spin_style = ProgressStyle::with_template("{spinner:.red} {msg}").unwrap();
@@ -586,6 +683,7 @@ fn make_file_copy(pb: ProgressBar, source_path: &PathBuf, config_dir: &PathBuf) 
     let dest_path = dest.join(filename);
 
     // copy source to destination
+    // TODO replace with crate fs_extra when working with directories
     fs::copy(source_path, dest_path)?;
 
     Ok(())
