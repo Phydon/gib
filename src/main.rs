@@ -15,6 +15,7 @@ use std::{
     path::{Path, PathBuf},
     process,
     str::FromStr,
+    thread,
     time::Duration,
 };
 
@@ -22,14 +23,12 @@ const SPINNER_BINARY: &[&str; 10] = &[
     "010010", "001100", "100101", "111010", "111101", "010111", "101011", "111000", "110011",
     "110101",
 ];
-const SPINNER_DOTS: &[&str; 56] = &[
-    "⢀⠀", "⡀⠀", "⠄⠀", "⢂⠀", "⡂⠀", "⠅⠀", "⢃⠀", "⡃⠀", "⠍⠀", "⢋⠀", "⡋⠀", "⠍⠁", "⢋⠁", "⡋⠁", "⠍⠉", "⠋⠉",
-    "⠋⠉", "⠉⠙", "⠉⠙", "⠉⠩", "⠈⢙", "⠈⡙", "⢈⠩", "⡀⢙", "⠄⡙", "⢂⠩", "⡂⢘", "⠅⡘", "⢃⠨", "⡃⢐", "⠍⡐", "⢋⠠",
-    "⡋⢀", "⠍⡁", "⢋⠁", "⡋⠁", "⠍⠉", "⠋⠉", "⠋⠉", "⠉⠙", "⠉⠙", "⠉⠩", "⠈⢙", "⠈⡙", "⠈⠩", "⠀⢙", "⠀⡙", "⠀⠩",
-    "⠀⢘", "⠀⡘", "⠀⠨", "⠀⢐", "⠀⡐", "⠀⠠", "⠀⢀", "⠀⡀",
-];
-const SPINNER_NOISE: &[&str; 3] = &["▓", "▒", "░"];
-const SPINNER_TOOGLE: &[&str; 3] = &["㊂", "㊀", "㊁"];
+const SPINNER_ARC: &[&str; 6] = &["◜", "◠", "◝", "◞", "◡", "◟"];
+
+enum CodingMethod {
+    Decoding,
+    Encoding,
+}
 
 // TODO add more methods
 // available methods for en-/decoding // en-/decrypting
@@ -127,18 +126,34 @@ fn main() -> Result<(), Box<dyn Error>> {
         if let Some(method) = matches.get_one::<String>("encode") {
             let mut hash = String::new();
             if password_flag {
-                let password = prompt_user_for_pw(pb.clone());
+                let mut password = String::new();
+                loop {
+                    let pw = prompt_user_for_pw(pb.clone(), "Enter password".to_string());
+                    let pw_confirmation =
+                        prompt_user_for_pw(pb.clone(), "Confirm password".to_string());
+
+                    if pw == pw_confirmation {
+                        password.push_str(&pw);
+                        break;
+                    }
+
+                    pb.suspend(|| {
+                        println!("Passwords didn`t match. Try again");
+                        thread::sleep(Duration::from_millis(1200));
+                    });
+                }
+
                 let hash_string = calculate_hash(pb.clone(), password);
                 hash.push_str(&hash_string);
             }
 
             let encoding_spinner_style = ProgressStyle::with_template("{spinner:.red} {msg}")
                 .unwrap()
-                .tick_strings(SPINNER_DOTS);
+                .tick_strings(SPINNER_ARC);
             pb.set_style(encoding_spinner_style);
             pb.set_message(format!("{}", "encoding...".truecolor(250, 0, 104)));
 
-            let (_, content) = read_file_content(&path.to_path_buf())?;
+            let (_, content) = read_file_content(&path.to_path_buf(), CodingMethod::Encoding)?;
 
             let mut encoded = Vec::new();
             match method.parse::<Method>().unwrap() {
@@ -167,10 +182,10 @@ fn main() -> Result<(), Box<dyn Error>> {
             // reading the encoded / encrypted content from the file must be handle
             // seperatly for every decoding / decrypting method
             // incase non utf-8 data from the file should be handle differently
-            let (hash, content) = read_file_content(&path.to_path_buf())?;
+            let (hash, content) = read_file_content(&path.to_path_buf(), CodingMethod::Decoding)?;
 
             if password_flag {
-                let password = prompt_user_for_pw(pb.clone());
+                let password = prompt_user_for_pw(pb.clone(), "Enter password".to_string());
                 let verification = verify_hash(pb.clone(), hash, password);
                 if !verification {
                     warn!("Couldn`t verify password");
@@ -180,7 +195,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
             let decoding_spinner_style = ProgressStyle::with_template("{spinner:.red} {msg}")
                 .unwrap()
-                .tick_strings(SPINNER_DOTS);
+                .tick_strings(SPINNER_ARC);
             pb.set_style(decoding_spinner_style);
             pb.set_message(format!("{}", "decoding...".truecolor(250, 0, 104)));
 
@@ -322,9 +337,9 @@ fn list_methods() {
     }
 }
 
-fn prompt_user_for_pw(pb: ProgressBar) -> String {
+fn prompt_user_for_pw(pb: ProgressBar, msg: String) -> String {
     pb.suspend(|| {
-        println!("Enter password:");
+        println!("{}", msg);
     });
     let pw_spin_style = ProgressStyle::with_template("{spinner:.black} {msg}").unwrap();
     pb.set_style(pw_spin_style.tick_chars("⬛⬛⬛⬛"));
@@ -423,7 +438,8 @@ fn decode_caesar(content: String) -> io::Result<Vec<u8>> {
 }
 
 fn encode_hex(content: String) -> io::Result<Vec<u8>> {
-    // TODO workaround: error in crate hex?
+    // TODO error in crate hex?
+    // TODO unable to convert '§' <-> 'a7'
     // TODO remove later
     assert!(!content.contains("§"));
 
@@ -433,9 +449,8 @@ fn encode_hex(content: String) -> io::Result<Vec<u8>> {
 }
 
 fn decode_hex(content: String) -> io::Result<Vec<u8>> {
-    // TODO workaround: error in crate hex?
-    // TODO remove later
-    assert!(!content.contains("a7"));
+    // TODO error in crate hex?
+    // TODO unable to convert '§' <-> 'a7'
 
     let decoded = hex::decode(&content).expect("Error while decoding file");
 
@@ -444,7 +459,7 @@ fn decode_hex(content: String) -> io::Result<Vec<u8>> {
 
 fn default_encoding(path: &PathBuf) -> io::Result<()> {
     let hash = String::new();
-    let (_, content) = read_file_content(&path.to_path_buf())?;
+    let (_, content) = read_file_content(&path.to_path_buf(), CodingMethod::Encoding)?;
     let mut encoded_base64 = Vec::new();
     let mut tmp_base64_encoded_vec = encode_base64ct(content)?;
     encoded_base64.append(&mut tmp_base64_encoded_vec);
@@ -452,7 +467,7 @@ fn default_encoding(path: &PathBuf) -> io::Result<()> {
     // write encrpyted content back to file
     write_file_content(&path.to_path_buf(), hash.clone(), &encoded_base64)?;
 
-    let (_, content2) = read_file_content(&path.to_path_buf())?;
+    let (_, content2) = read_file_content(&path.to_path_buf(), CodingMethod::Encoding)?;
     let mut encoded_caesar = Vec::new();
     let mut tmp_caesar_encoded_vec = encode_caesar(content2)?;
     encoded_caesar.append(&mut tmp_caesar_encoded_vec);
@@ -473,7 +488,7 @@ fn decode_testing(_content: String) -> io::Result<Vec<u8>> {
     unimplemented!()
 }
 
-fn read_file_content(path: &PathBuf) -> io::Result<(String, String)> {
+fn read_file_content(path: &PathBuf, codingmethod: CodingMethod) -> io::Result<(String, String)> {
     let file = fs::File::open(path)?;
     let buf_reader = BufReader::new(file);
     let mut buffer_lines = buf_reader
@@ -481,8 +496,15 @@ fn read_file_content(path: &PathBuf) -> io::Result<(String, String)> {
         .map(|line| line.expect("Failed to read line in encoded file"));
 
     let first_line: String = buffer_lines.next().unwrap().parse().unwrap();
-    // FIXME removes newlines ('\n') ???
-    let rest: String = buffer_lines.collect();
+    let mut rest = String::new();
+    for line in buffer_lines {
+        rest.push_str(&line);
+
+        match codingmethod {
+            CodingMethod::Decoding => {}
+            CodingMethod::Encoding => rest.push_str("\n"),
+        }
+    }
 
     let mut hash = String::new();
     let mut content = String::new();
@@ -493,8 +515,6 @@ fn read_file_content(path: &PathBuf) -> io::Result<(String, String)> {
         content.push_str(&first_line);
 
         if !rest.is_empty() {
-            // FIXME only the second line is on a new line
-            // FIXME everything else is written without any new line
             content.push_str("\n");
             content.push_str(&rest);
         }
@@ -504,6 +524,7 @@ fn read_file_content(path: &PathBuf) -> io::Result<(String, String)> {
 }
 
 fn write_file_content(path: &PathBuf, hash: String, content: &[u8]) -> io::Result<()> {
+    // FIXME when decoding hex -> no new lines
     let mut newfile = fs::OpenOptions::new()
         .write(true)
         .truncate(true)
