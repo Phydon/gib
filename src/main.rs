@@ -44,8 +44,11 @@ enum Method {
     // Feistel, // encrypt == decrypt (use as default?)
     Hex,
     L33t,
+    // OneTimePad,
+    // RC4,
     // Unicode (UTF-8),
     Testing,
+    XOR,
 }
 
 #[derive(Debug)]
@@ -61,6 +64,7 @@ impl FromStr for Method {
             "hex" => Ok(Method::Hex),
             "l33t" | "1337" | "leet" => Ok(Method::L33t),
             "test" | "testing" => Ok(Method::Testing),
+            "xor" => Ok(Method::XOR),
             _ => {
                 error!("{:?}: Unknown method", MethodError);
                 info!("Type: 'gib --list' to see all available methods");
@@ -222,6 +226,10 @@ fn main() -> Result<(), Box<dyn Error>> {
                     let mut testing_encoded_vec = encode_testing(content)?;
                     encoded.append(&mut testing_encoded_vec);
                 }
+                Method::XOR => {
+                    let mut xor_encoded_vec = encode_decode_xor(content)?;
+                    encoded.append(&mut xor_encoded_vec);
+                }
             }
 
             // write encoded / encrpyted content back to file
@@ -271,6 +279,10 @@ fn main() -> Result<(), Box<dyn Error>> {
                 Method::Testing => {
                     let mut testing_decoded_vec = decode_testing(content)?;
                     decoded.append(&mut testing_decoded_vec);
+                }
+                Method::XOR => {
+                    let mut xor_decoded_vec = encode_decode_xor(content)?;
+                    decoded.append(&mut xor_decoded_vec);
                 }
             }
 
@@ -662,6 +674,12 @@ fn default_encoding(path: &PathBuf) -> io::Result<()> {
 
     Ok(())
 }
+fn encode_decode_xor(content: String) -> io::Result<Vec<u8>> {
+    let key = 42;
+    let encoded: Vec<u8> = content.as_bytes().iter().map(|c| c ^ key).collect();
+
+    Ok(encoded)
+}
 
 // for testing only -> remove later
 fn encode_testing(_content: String) -> io::Result<Vec<u8>> {
@@ -921,4 +939,31 @@ fn encode_hex_special_chars_test_2() {
 // error in hex crate ???
 fn decode_hex_special_chars_test_2() {
     assert_eq!(decode_hex("a7".to_string()).unwrap(), "§".as_bytes());
+}
+
+#[test]
+fn encode_xor_test() {
+    assert_eq!(
+        encode_decode_xor("This is a test".to_string()).unwrap(),
+        "~BCY
+CY
+K
+^OY^"
+            .as_bytes()
+    );
+}
+
+#[test]
+fn decode_xor_test() {
+    assert_eq!(
+        encode_decode_xor(
+            "~OY^CDM
+K^
+C^JY
+HOY^"
+                .to_string()
+        )
+        .unwrap(),
+        "Testing at it`s best".as_bytes()
+    );
 }
