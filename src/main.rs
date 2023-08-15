@@ -347,7 +347,7 @@ fn gib() -> Command {
             "Quickly en-/decode // en-/decrypt files 'on the fly'",
         ))
         // TODO update version
-        .version("1.2.0")
+        .version("1.3.0")
         .author("Leann Phydon <leann.phydon@gmail.com>")
         .arg_required_else_help(true)
         .arg(
@@ -552,77 +552,97 @@ fn decode_hex(content: String) -> io::Result<Vec<u8>> {
     Ok(decoded)
 }
 
-// TODO convert char to l33t
+// convert char to l33t
 fn l33t_alphabet_hard() -> HashMap<&'static str, &'static str> {
     let l33t_alphabet: HashMap<&'static str, &'static str> = HashMap::from([
-        ("a", "4"),
+        ("a", "@"),
+        ("@", "a"),
         ("b", "8"),
-        ("c", "{"),
-        ("e", "3"),
-        ("g", "6"),
-        ("h", "#"),
-        ("i", "!"),
-        ("l", "1"),
-        ("o", "0"),
-        ("p", "9"),
-        ("q", "o"),
-        ("s", "5"),
-        ("t", "7"),
-        ("x", "%"),
-        ("z", "2"),
-        ("1", "l"),
-        ("2", "z"),
-        ("3", "e"),
-        ("4", "a"),
-        ("5", "s"),
-        ("6", "g"),
-        ("7", "t"),
         ("8", "b"),
-        ("9", "p"),
+        ("c", "{"),
+        ("{", "c"),
+        ("e", "3"),
+        ("3", "e"),
+        ("g", "6"),
+        ("6", "g"),
+        ("h", "#"),
+        ("#", "h"),
+        ("i", "!"),
+        ("!", "i"),
+        ("l", "1"),
+        ("1", "l"),
+        ("o", "0"),
         ("0", "o"),
+        ("p", "9"),
+        ("9", "p"),
+        ("s", "5"),
+        ("5", "s"),
+        ("t", "7"),
+        ("7", "t"),
+        ("x", "%"),
+        ("%", "x"),
+        ("z", "2"),
+        ("2", "z"),
         ("(", ")"),
         (")", "("),
-        ("!", "i"),
-        ("#", "h"),
-        ("{", "c"),
+        ("A", "4"),
+        ("4", "A"),
+        ("B", "ß"),
+        ("ß", "B"),
+        ("C", "©"),
+        ("©", "C"),
+        ("E", "€"),
+        ("€", "E"),
+        ("J", "√"),
+        ("√", "J"),
+        ("N", "И"),
+        ("И", "N"),
+        ("O", "Ø"),
+        ("Ø", "O"),
+        ("R", "®"),
+        ("®", "R"),
+        ("S", "$"),
+        ("$", "S"),
+        ("Ш", "W"),
+        ("W", "Ш"),
+        ("Y", "¥"),
+        ("¥", "Y"),
     ]);
 
     l33t_alphabet
 }
 
-// TODO convert char to l33t soft
+// convert char to l33t soft
 fn l33t_alphabet_soft() -> HashMap<&'static str, &'static str> {
     let l33t_alphabet: HashMap<&'static str, &'static str> = HashMap::from([
         ("a", "4"),
+        ("4", "a"),
         ("b", "8"),
+        ("8", "b"),
         ("e", "3"),
+        ("3", "e"),
         ("g", "6"),
+        ("6", "g"),
         ("i", "!"),
+        ("!", "i"),
+        ("1", "l"),
         ("l", "1"),
         ("o", "0"),
+        ("0", "o"),
+        ("5", "s"),
         ("s", "5"),
         ("t", "7"),
-        ("z", "2"),
-        ("1", "l"),
-        ("2", "z"),
-        ("3", "e"),
-        ("4", "a"),
-        ("5", "s"),
-        ("6", "g"),
         ("7", "t"),
-        ("8", "b"),
-        ("0", "o"),
-        ("!", "i"),
+        ("z", "2"),
+        ("2", "z"),
     ]);
 
     l33t_alphabet
 }
 
-// TODO add tests
 fn encode_decode_l33t(content: String, mode: &String) -> io::Result<Vec<u8>> {
     let mut encoded = String::new();
     match mode.parse::<L33t>().unwrap() {
-        // TODO check if working correctly
         L33t::Hard => {
             let l33t_alphabet = l33t_alphabet_hard();
             let l33t_content: String = content
@@ -939,6 +959,38 @@ fn encode_hex_special_chars_test_2() {
 // error in hex crate ???
 fn decode_hex_special_chars_test_2() {
     assert_eq!(decode_hex("a7".to_string()).unwrap(), "§".as_bytes());
+}
+
+#[test]
+fn encode_l33t_soft_test() {
+    assert_eq!(
+        encode_decode_l33t("This is a test".to_string(), &"soft".to_string()).unwrap(),
+        "Th!5 !5 4 7357".as_bytes()
+    );
+}
+
+#[test]
+fn decode_l33t_soft_test() {
+    assert_eq!(
+        encode_decode_l33t("T357!n6 47 !7`5 8357".to_string(), &"soft".to_string()).unwrap(),
+        "Testing at it`s best".as_bytes()
+    );
+}
+
+#[test]
+fn encode_l33t_hard_test() {
+    assert_eq!(
+        encode_decode_l33t("This is a test".to_string(), &"hard".to_string()).unwrap(),
+        "T#!5 !5 @ 7357".as_bytes()
+    );
+}
+
+#[test]
+fn decode_l33t_hard_test() {
+    assert_eq!(
+        encode_decode_l33t("T357!n6 @7 !7`5 8357".to_string(), &"hard".to_string()).unwrap(),
+        "Testing at it`s best".as_bytes()
+    );
 }
 
 #[test]
