@@ -35,12 +35,15 @@ enum CodingMethod {
 // available methods for en-/decoding // en-/decrypting
 #[derive(Debug, EnumIter)]
 enum Method {
+    // Ascii,
     // AutoKey,
     Base64ct,
+    // Bytes,
     Caesar,
     // ColumnarTransposition,
     Hex,
     L33t,
+    // Unicode (UTF-8),
     Testing,
 }
 
