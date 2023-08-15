@@ -41,6 +41,7 @@ enum Method {
     // Bytes,
     Caesar,
     // ColumnarTransposition,
+    // Feistel, // encrypt == decrypt (use as default?)
     Hex,
     L33t,
     // Unicode (UTF-8),
