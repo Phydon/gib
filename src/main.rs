@@ -38,7 +38,7 @@ enum Method {
     // Ascii,
     // AutoKey,
     Base64ct,
-    // Bytes,
+    Bytes,
     Caesar,
     // ColumnarTransposition,
     // Feistel, // encrypt == decrypt (use as default?)
@@ -60,6 +60,7 @@ impl FromStr for Method {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_ascii_lowercase().as_str() {
             "base64ct" | "base64" => Ok(Method::Base64ct),
+            "bytes" | "byte" => Ok(Method::Bytes),
             "caesar" => Ok(Method::Caesar),
             "hex" => Ok(Method::Hex),
             "l33t" | "1337" | "leet" => Ok(Method::L33t),
@@ -207,6 +208,10 @@ fn main() -> Result<(), Box<dyn Error>> {
                     let mut base64ct_encoded_vec = encode_base64ct(content)?;
                     encoded.append(&mut base64ct_encoded_vec);
                 }
+                Method::Bytes => {
+                    let mut bytes_encoded_vec = encode_bytes(content)?;
+                    encoded.append(&mut bytes_encoded_vec);
+                }
                 Method::Caesar => {
                     let mut caesar_encoded_vec = encode_caesar(content)?;
                     encoded.append(&mut caesar_encoded_vec);
@@ -260,6 +265,11 @@ fn main() -> Result<(), Box<dyn Error>> {
                 Method::Base64ct => {
                     let mut base64ct_decoded_vec = decode_base64ct(content)?;
                     decoded.append(&mut base64ct_decoded_vec);
+                }
+                Method::Bytes => {
+                    // FIXME
+                    let mut byte_decoded_vec = decode_bytes(content)?;
+                    decoded.append(&mut byte_decoded_vec);
                 }
                 Method::Caesar => {
                     let mut caesar_decoded_vec = decode_caesar(content)?;
@@ -471,12 +481,48 @@ fn verify_hash(pb: ProgressBar, hash: String, password: String) -> bool {
 }
 
 fn encode_base64ct(content: String) -> io::Result<Vec<u8>> {
-    let encoded = Base64::encode_string(content.to_string().as_bytes());
+    let encoded = Base64::encode_string(content.as_bytes());
     Ok(encoded.into_bytes())
 }
 
 fn decode_base64ct(content: String) -> io::Result<Vec<u8>> {
     let decoded = Base64::decode_vec(&content).expect("Error while decoding file");
+    Ok(decoded)
+}
+
+// FIXME error running tests
+fn encode_bytes(content: String) -> io::Result<Vec<u8>> {
+    let encoded: String = content
+        .as_bytes()
+        .iter()
+        .map(|b| {
+            let mut new_byte = String::new();
+            new_byte.push_str(&b.to_string());
+            new_byte.push_str(" ");
+            new_byte
+        })
+        .collect();
+
+    Ok(encoded.into_bytes())
+}
+
+fn decode_bytes(content: String) -> io::Result<Vec<u8>> {
+    let mut decoded = Vec::new();
+    content
+        .split(" ")
+        .collect::<Vec<&str>>()
+        .iter()
+        .for_each(|s| {
+            if s.is_empty() {
+                ()
+            } else {
+                decoded.push(s.parse::<u8>().unwrap_or_else(|err| {
+                    error!("Error while parsing str to bytes: {err}");
+                    process::exit(1);
+                }))
+            }
+        });
+
     Ok(decoded)
 }
 
@@ -507,6 +553,7 @@ fn encode_caesar(content: String) -> io::Result<Vec<u8>> {
 }
 
 // based on https://github.com/TheAlgorithms/Rust
+// FIXME no new lines when writing decoded content back to file
 fn decode_caesar(content: String) -> io::Result<Vec<u8>> {
     // TODO get key from user
     // key = 13 == ROT13 (encrypting and decrypting is its own inverse)
@@ -613,6 +660,7 @@ fn l33t_alphabet_hard() -> HashMap<&'static str, &'static str> {
 }
 
 // convert char to l33t soft
+// TODO remove more pairs for better readability in soft mode???
 fn l33t_alphabet_soft() -> HashMap<&'static str, &'static str> {
     let l33t_alphabet: HashMap<&'static str, &'static str> = HashMap::from([
         ("a", "4"),
@@ -758,7 +806,7 @@ fn read_file_content(path: &PathBuf, codingmethod: CodingMethod) -> io::Result<(
 }
 
 fn write_file_content(path: &PathBuf, hash: String, content: &[u8]) -> io::Result<()> {
-    // FIXME when decoding hex / caesar -> no new lines
+    // FIXME when decoding (hex /) caesar -> no new lines
     let mut newfile = fs::OpenOptions::new()
         .write(true)
         .truncate(true)
@@ -873,6 +921,26 @@ fn decode_base64ct_special_chars_test() {
     assert_eq!(
         decode_base64ct("UmFuZG9tIGNoYXJzOiAhIsKnJCUmLygpPT9gKyMqJy1ffkA=".to_string()).unwrap(),
         "Random chars: !\"§$%&/()=?`+#*'-_~@".as_bytes()
+    );
+}
+
+// FIXME
+#[test]
+fn encode_bytes_test() {
+    assert_eq!(
+        encode_bytes("This is a test".to_string()).unwrap(),
+        "84 104 105 115 32 105 115 32 97 32 116 101 115 116".as_bytes()
+    );
+}
+
+#[test]
+fn decode_bytes_test() {
+    assert_eq!(
+        decode_bytes(
+            "84 101 115 116 105 110 103 32 97 116 32 105 116 96 115 32 98 101 115 116".to_string()
+        )
+        .unwrap(),
+        "Testing at it`s best".as_bytes()
     );
 }
 
