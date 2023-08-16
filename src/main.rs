@@ -345,15 +345,16 @@ fn gib() -> Command {
             "GIB".bold().truecolor(250, 0, 104),
             "Leann Phydon <leann.phydon@gmail.com>".italic().dimmed()
         ))
-        .about("En-/Decode // En-/Decrypt files")
+        .about(format!("{} {}", "Turning text into", "GIBBERISH".bold(),))
         .before_long_help(format!(
             "{}\n{}",
             "GIB".bold().truecolor(250, 0, 104),
             "Leann Phydon <leann.phydon@gmail.com>".italic().dimmed()
         ))
         .long_about(format!(
-            "{}\n{}",
-            "GIBBERISH".italic(),
+            "{} {}\n{}",
+            "Turning text into",
+            "GIBBERISH".bold(),
             "Quickly en-/decode // en-/decrypt files 'on the fly'",
         ))
         // TODO update version

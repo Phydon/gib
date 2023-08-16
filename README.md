@@ -1,6 +1,6 @@
 # gib
 
-**gibberish**
+turning text into **gibberish**
 
 *quick file en-/decoding // en-/decrypting "on the fly"*
 
