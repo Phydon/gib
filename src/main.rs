@@ -459,7 +459,6 @@ fn prompt_user_for_pw(pb: ProgressBar, msg: String) -> String {
 fn calculate_hash(pb: ProgressBar, password: String) -> String {
     let calc_hash_spin_style = ProgressStyle::with_template("{spinner:.white} {msg}").unwrap();
     pb.set_style(calc_hash_spin_style.tick_strings(SPINNER_BINARY));
-
     pb.set_message(format!("{}", "calculating hash ...".truecolor(250, 0, 104)));
 
     let salt = b"gibberish_salt";
@@ -690,35 +689,20 @@ fn l33t_alphabet_soft() -> HashMap<&'static str, &'static str> {
 }
 
 fn encode_decode_l33t(content: String, mode: &String) -> io::Result<Vec<u8>> {
-    let mut encoded = String::new();
-    match mode.parse::<L33t>().unwrap() {
-        L33t::Hard => {
-            let l33t_alphabet = l33t_alphabet_hard();
-            let l33t_content: String = content
-                .chars()
-                .map(|char| {
-                    l33t_alphabet
-                        .get(char.to_string().as_str())
-                        .unwrap_or(&char.to_string().as_str())
-                        .to_string()
-                })
-                .collect();
-            encoded.push_str(&l33t_content);
-        }
-        L33t::Soft => {
-            let l33t_alphabet = l33t_alphabet_soft();
-            let l33t_content: String = content
-                .chars()
-                .map(|char| {
-                    l33t_alphabet
-                        .get(char.to_string().as_str())
-                        .unwrap_or(&char.to_string().as_str())
-                        .to_string()
-                })
-                .collect();
-            encoded.push_str(&l33t_content);
-        }
-    }
+    let l33t_alphabet = match mode.parse::<L33t>().unwrap() {
+        L33t::Hard => l33t_alphabet_hard(),
+        L33t::Soft => l33t_alphabet_soft(),
+    };
+
+    let encoded: String = content
+        .chars()
+        .map(|char| {
+            l33t_alphabet
+                .get(char.to_string().as_str())
+                .unwrap_or(&char.to_string().as_str())
+                .to_string()
+        })
+        .collect();
 
     Ok(encoded.into_bytes())
 }
