@@ -745,13 +745,16 @@ fn read_file_content(path: &PathBuf, codingmethod: CodingMethod) -> io::Result<(
 
     let mut rest = String::new();
     for line in buffer_lines {
-        rest.push_str(&line);
+        rest.push_str(&line.trim());
 
         match codingmethod {
             CodingMethod::Decoding => {}
             CodingMethod::Encoding => rest.push_str("\n"),
         }
     }
+
+    //remove '\n' from last line
+    rest.pop();
 
     let mut hash = String::new();
     let mut content = String::new();
@@ -889,6 +892,27 @@ fn decode_base64ct_special_chars_test() {
     );
 }
 
+#[test]
+fn encode_base64ct_multi_lines_test() {
+    assert_eq!(
+        encode_base64ct("This is a test.\nWith multiple lines in it.\nYour welcome.".to_string())
+            .unwrap(),
+        "VGhpcyBpcyBhIHRlc3QuXG5XaXRoIG11bHRpcGxlIGxpbmVzIGluIGl0LlxuWW91ciB3ZWxjb21lLg=="
+            .as_bytes()
+    );
+}
+
+#[test]
+fn decode_base64ct_multi_lines_test() {
+    assert_eq!(
+        decode_base64ct(
+            "VGhpcyBtdWx0aSBsaW5lIHRlc3RpbmcsDQppcyB3b3JraW5nLg0KT3IgaXMgaXQ/".to_string()
+        )
+        .unwrap(),
+        "This multi line testing,\nis working.\nOr is it?".as_bytes()
+    );
+}
+
 // FIXME
 #[test]
 fn encode_bytes_test() {
@@ -906,6 +930,27 @@ fn decode_bytes_test() {
         )
         .unwrap(),
         "Testing at it`s best".as_bytes()
+    );
+}
+
+#[test]
+fn encode_bytes_multi_lines_test() {
+    assert_eq!(
+        encode_bytes("This is a test.\nWith multiple lines in it.\nYour welcome.".to_string())
+            .unwrap(),
+        "84 104 105 115 32 105 115 32 97 32 116 101 115 116 46 92 110 87 105 116 104 32 109 117 108 116 105 112 108 101 32 108 105 110 101 115 32 105 110 32 105 116 46 92 110 89 111 117 114 32 119 101 108 99 111 109 101 46"
+            .as_bytes()
+    );
+}
+
+#[test]
+fn decode_bytes_multi_lines_test() {
+    assert_eq!(
+        decode_bytes(
+            "84 104 105 115 32 109 117 108 116 105 32 108 105 110 101 32 116 101 115 116 105 110 103 44 92 110 105 115 32 119 111 114 107 105 110 103 46 92 110 79 114 32 105 115 32 105 116 63".to_string()
+        )
+        .unwrap(),
+        "This multi line testing,\nis working.\nOr is it?".as_bytes()
     );
 }
 
@@ -938,6 +983,23 @@ fn decode_caesar_special_chars_test() {
     assert_eq!(
         decode_caesar("Enaqbz punef: !\"§$%&/()=?`+#*'-_~@".to_string()).unwrap(),
         "Random chars: !\"§$%&/()=?`+#*'-_~@".as_bytes()
+    );
+}
+
+#[test]
+fn encode_caesar_multi_lines_test() {
+    assert_eq!(
+        encode_caesar("This is a test.\nWith multiple lines in it.\nYour welcome.".to_string())
+            .unwrap(),
+        "Guvf vf n grfg.\nJvgu zhygvcyr yvarf va vg.\nLbhe jrypbzr.".as_bytes()
+    );
+}
+
+#[test]
+fn decode_caesar_multi_lines_test() {
+    assert_eq!(
+        decode_caesar("Guvf zhygv yvar grfgvat,\nvf jbexvat.\nBe vf vg?".to_string()).unwrap(),
+        "This multi line testing,\nis working.\nOr is it?".as_bytes()
     );
 }
 
@@ -995,6 +1057,23 @@ fn decode_hex_special_chars_test_2() {
 }
 
 #[test]
+fn encode_hex_multi_lines_test() {
+    assert_eq!(
+        encode_hex("This is a test.\nWith multiple lines in it.\nYour welcome.".to_string())
+            .unwrap(),
+        "54686973206973206120746573742e5c6e57697468206d756c7469706c65206c696e657320696e2069742e5c6e596f75722077656c636f6d652e".as_bytes()
+    );
+}
+
+#[test]
+fn decode_hex_multi_lines_test() {
+    assert_eq!(
+        decode_hex("54686973206d756c7469206c696e652074657374696e672c5c6e697320776f726b696e672e5c6e4f722069732069743f".to_string()).unwrap(),
+        "This multi line testing,\nis working.\nOr is it?".as_bytes()
+    );
+}
+
+#[test]
 fn encode_l33t_soft_test() {
     assert_eq!(
         encode_decode_l33t("This is a test".to_string(), &"soft".to_string()).unwrap(),
@@ -1011,6 +1090,30 @@ fn decode_l33t_soft_test() {
 }
 
 #[test]
+fn encode_l33t_soft_multi_lines_test() {
+    assert_eq!(
+        encode_decode_l33t(
+            "This is a test.\nWith multiple lines in it.\nYour welcome.".to_string(),
+            &"soft".to_string()
+        )
+        .unwrap(),
+        "Th!5 !5 4 7357.\nW!7h mu17!p13 1!n35 !n !7.\nY0ur w31c0m3.".as_bytes()
+    );
+}
+
+#[test]
+fn decode_l33t_soft_multi_lines_test() {
+    assert_eq!(
+        encode_decode_l33t(
+            "Th!5 mu17! 1!n3 7357!n6,\n!5 w0rk!n6.\nOr !5 !7?".to_string(),
+            &"soft".to_string()
+        )
+        .unwrap(),
+        "This multi line testing,\nis working.\nOr is it?".as_bytes()
+    );
+}
+
+#[test]
 fn encode_l33t_hard_test() {
     assert_eq!(
         encode_decode_l33t("This is a test".to_string(), &"hard".to_string()).unwrap(),
@@ -1023,6 +1126,30 @@ fn decode_l33t_hard_test() {
     assert_eq!(
         encode_decode_l33t("T357!n6 @7 !7`5 8357".to_string(), &"hard".to_string()).unwrap(),
         "Testing at it`s best".as_bytes()
+    );
+}
+
+#[test]
+fn encode_l33t_hard_multi_lines_test() {
+    assert_eq!(
+        encode_decode_l33t(
+            "This is a test.\nWith multiple lines in it.\nYour welcome.".to_string(),
+            &"hard".to_string()
+        )
+        .unwrap(),
+        "T#!5 !5 @ 7357.\nШ!7# mu17!913 1!n35 !n !7.\n¥0ur w31{0m3.".as_bytes()
+    );
+}
+
+#[test]
+fn decode_l33t_hard_multi_lines_test() {
+    assert_eq!(
+        encode_decode_l33t(
+            "T#!5 mu17! 1!n3 7357!n6,\n!5 w0rk!n6.\nØr !5 !7?".to_string(),
+            &"hard".to_string()
+        )
+        .unwrap(),
+        "This multi line testing,\nis working.\nOr is it?".as_bytes()
     );
 }
 
@@ -1050,5 +1177,41 @@ HOY^"
         )
         .unwrap(),
         "Testing at it`s best".as_bytes()
+    );
+}
+
+#[test]
+fn encode_xor_multi_lines_test() {
+    assert_eq!(
+        encode_decode_xor("This is a test.\nWith multiple lines in it.\nYour welcome.".to_string())
+            .unwrap(),
+        "~BCY
+CY
+K
+^OY^�vD}C^B
+G_F^CZFO
+FCDOY
+CD
+C^�vDsE_X
+]OFIEGO�"
+            .as_bytes()
+    );
+}
+
+#[test]
+fn decode_xor_multi_lines_test() {
+    assert_eq!(
+        encode_decode_xor(
+            "~BCY
+G_F^C
+FCDO
+^OY^CDM�vDCY
+]EXACDM�vDeX
+CY
+C^�"
+            .to_string()
+        )
+        .unwrap(),
+        "This multi line testing,\nis working.\nOr is it?".as_bytes()
     );
 }
