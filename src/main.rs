@@ -47,7 +47,6 @@ enum Method {
     // OneTimePad,
     // RC4,
     // Unicode (UTF-8),
-    Testing,
     XOR,
 }
 
@@ -64,7 +63,6 @@ impl FromStr for Method {
             "caesar" => Ok(Method::Caesar),
             "hex" => Ok(Method::Hex),
             "l33t" | "1337" | "leet" => Ok(Method::L33t),
-            "test" | "testing" => Ok(Method::Testing),
             "xor" => Ok(Method::XOR),
             _ => {
                 error!("{:?}: Unknown method", MethodError);
@@ -227,10 +225,6 @@ fn main() -> Result<(), Box<dyn Error>> {
                         encoded.append(&mut l33t_encoded_vec);
                     }
                 }
-                Method::Testing => {
-                    let mut testing_encoded_vec = encode_testing(content)?;
-                    encoded.append(&mut testing_encoded_vec);
-                }
                 Method::XOR => {
                     let mut xor_encoded_vec = encode_decode_xor(content)?;
                     encoded.append(&mut xor_encoded_vec);
@@ -285,10 +279,6 @@ fn main() -> Result<(), Box<dyn Error>> {
                         let mut l33t_decoded_vec = encode_decode_l33t(content, mode)?;
                         decoded.append(&mut l33t_decoded_vec);
                     }
-                }
-                Method::Testing => {
-                    let mut testing_decoded_vec = decode_testing(content)?;
-                    decoded.append(&mut testing_decoded_vec);
                 }
                 Method::XOR => {
                     let mut xor_decoded_vec = encode_decode_xor(content)?;
@@ -732,16 +722,6 @@ fn encode_decode_xor(content: String) -> io::Result<Vec<u8>> {
     let encoded: Vec<u8> = content.as_bytes().iter().map(|c| c ^ key).collect();
 
     Ok(encoded)
-}
-
-// for testing only -> remove later
-fn encode_testing(_content: String) -> io::Result<Vec<u8>> {
-    unimplemented!()
-}
-
-// for testing only -> remove later
-fn decode_testing(_content: String) -> io::Result<Vec<u8>> {
-    unimplemented!()
 }
 
 fn read_file_content(path: &PathBuf, codingmethod: CodingMethod) -> io::Result<(String, String)> {
