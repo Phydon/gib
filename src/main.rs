@@ -233,6 +233,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
             // write encoded / encrpyted content back to file
             write_file_content(&path.to_path_buf(), hash, &encoded)?;
+            // FIXME error while decoding (e.g. xor encode and decode)
         } else if let Some(method) = matches.get_one::<String>("decode") {
             // non utf-8 data could be written to file via encrypting methods
             // -> reading the encoded / encrypted content from the file must be handled
@@ -281,6 +282,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                     }
                 }
                 Method::XOR => {
+                    // FIXME
                     let mut xor_decoded_vec = encode_decode_xor(content)?;
                     decoded.append(&mut xor_decoded_vec);
                 }
@@ -575,7 +577,7 @@ fn encode_hex(content: String) -> io::Result<Vec<u8>> {
     // remove later
     assert!(!content.contains("§"));
 
-    let encoded = hex::encode(content.trim().to_string());
+    let encoded = hex::encode(content.to_string());
 
     Ok(encoded.into_bytes())
 }
@@ -745,9 +747,10 @@ fn read_file_content(path: &PathBuf, codingmethod: CodingMethod) -> io::Result<(
 
     let mut rest = String::new();
     for line in buffer_lines {
-        rest.push_str(&line.trim());
+        rest.push_str(&line);
 
         match codingmethod {
+            // FIXME??
             CodingMethod::Decoding => {}
             CodingMethod::Encoding => rest.push_str("\n"),
         }
