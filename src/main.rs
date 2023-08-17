@@ -900,8 +900,7 @@ fn encode_base64ct_multi_lines_test() {
     assert_eq!(
         encode_base64ct("This is a test.\nWith multiple lines in it.\nYour welcome.".to_string())
             .unwrap(),
-        "VGhpcyBpcyBhIHRlc3QuXG5XaXRoIG11bHRpcGxlIGxpbmVzIGluIGl0LlxuWW91ciB3ZWxjb21lLg=="
-            .as_bytes()
+        "VGhpcyBpcyBhIHRlc3QuCldpdGggbXVsdGlwbGUgbGluZXMgaW4gaXQuCllvdXIgd2VsY29tZS4=".as_bytes()
     );
 }
 
@@ -909,7 +908,7 @@ fn encode_base64ct_multi_lines_test() {
 fn decode_base64ct_multi_lines_test() {
     assert_eq!(
         decode_base64ct(
-            "VGhpcyBtdWx0aSBsaW5lIHRlc3RpbmcsDQppcyB3b3JraW5nLg0KT3IgaXMgaXQ/".to_string()
+            "VGhpcyBtdWx0aSBsaW5lIHRlc3RpbmcsCmlzIHdvcmtpbmcuCk9yIGlzIGl0Pw==".to_string()
         )
         .unwrap(),
         "This multi line testing,\nis working.\nOr is it?".as_bytes()
@@ -1064,14 +1063,14 @@ fn encode_hex_multi_lines_test() {
     assert_eq!(
         encode_hex("This is a test.\nWith multiple lines in it.\nYour welcome.".to_string())
             .unwrap(),
-        "54686973206973206120746573742e5c6e57697468206d756c7469706c65206c696e657320696e2069742e5c6e596f75722077656c636f6d652e".as_bytes()
+        "54686973206973206120746573742e0a57697468206d756c7469706c65206c696e657320696e2069742e0a596f75722077656c636f6d652e".as_bytes()
     );
 }
 
 #[test]
 fn decode_hex_multi_lines_test() {
     assert_eq!(
-        decode_hex("54686973206d756c7469206c696e652074657374696e672c5c6e697320776f726b696e672e5c6e4f722069732069743f".to_string()).unwrap(),
+        decode_hex("54686973206d756c7469206c696e652074657374696e672c0a697320776f726b696e672e0a4f722069732069743f".to_string()).unwrap(),
         "This multi line testing,\nis working.\nOr is it?".as_bytes()
     );
 }
@@ -1183,6 +1182,9 @@ HOY^"
     );
 }
 
+// FIXME unprintable chars are replaced with '?' in website calculators
+// but not in helix???
+// or other representation when xor applied???
 #[test]
 fn encode_xor_multi_lines_test() {
     assert_eq!(
@@ -1191,16 +1193,19 @@ fn encode_xor_multi_lines_test() {
         "~BCY
 CY
 K
-^OY^�vD}C^B
+^OY^� }C^B
 G_F^CZFO
 FCDOY
 CD
-C^�vDsE_X
+C^� sE_X
 ]OFIEGO�"
             .as_bytes()
     );
 }
 
+// FIXME unprintable chars are replaced with '?' in website calculators
+// but not in helix???
+// or other representation when xor applied???
 #[test]
 fn decode_xor_multi_lines_test() {
     assert_eq!(
@@ -1208,8 +1213,8 @@ fn decode_xor_multi_lines_test() {
             "~BCY
 G_F^C
 FCDO
-^OY^CDM�vDCY
-]EXACDM�vDeX
+^OY^CDM� CY
+]EXACDM� eX
 CY
 C^�"
             .to_string()
