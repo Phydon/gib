@@ -10,7 +10,6 @@ turning text into **gibberish**
 *work in progress*
 
 * base64 (constant time)
-* bytes
 * caesar cipher
 * hex
 * l33t

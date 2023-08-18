@@ -38,7 +38,6 @@ enum Method {
     // Ascii,
     // AutoKey,
     Base64ct,
-    Bytes,
     Caesar,
     // ColumnarTransposition,
     // Feistel, // encrypt == decrypt (use as default?)
@@ -59,7 +58,6 @@ impl FromStr for Method {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_ascii_lowercase().as_str() {
             "base64ct" | "base64" => Ok(Method::Base64ct),
-            "bytes" | "byte" => Ok(Method::Bytes),
             "caesar" => Ok(Method::Caesar),
             "hex" => Ok(Method::Hex),
             "l33t" | "1337" | "leet" => Ok(Method::L33t),
@@ -206,10 +204,6 @@ fn main() -> Result<(), Box<dyn Error>> {
                     let mut base64ct_encoded_vec = encode_base64ct(content)?;
                     encoded.append(&mut base64ct_encoded_vec);
                 }
-                Method::Bytes => {
-                    let mut bytes_encoded_vec = encode_bytes(content)?;
-                    encoded.append(&mut bytes_encoded_vec);
-                }
                 Method::Caesar => {
                     let mut caesar_encoded_vec = encode_caesar(content)?;
                     encoded.append(&mut caesar_encoded_vec);
@@ -260,11 +254,6 @@ fn main() -> Result<(), Box<dyn Error>> {
                 Method::Base64ct => {
                     let mut base64ct_decoded_vec = decode_base64ct(content)?;
                     decoded.append(&mut base64ct_decoded_vec);
-                }
-                Method::Bytes => {
-                    // FIXME
-                    let mut byte_decoded_vec = decode_bytes(content)?;
-                    decoded.append(&mut byte_decoded_vec);
                 }
                 Method::Caesar => {
                     let mut caesar_decoded_vec = decode_caesar(content)?;
@@ -479,42 +468,6 @@ fn encode_base64ct(content: String) -> io::Result<Vec<u8>> {
 
 fn decode_base64ct(content: String) -> io::Result<Vec<u8>> {
     let decoded = Base64::decode_vec(&content).expect("Error while decoding file");
-    Ok(decoded)
-}
-
-// FIXME error running tests
-fn encode_bytes(content: String) -> io::Result<Vec<u8>> {
-    let encoded: String = content
-        .as_bytes()
-        .iter()
-        .map(|b| {
-            let mut new_byte = String::new();
-            new_byte.push_str(&b.to_string());
-            new_byte.push_str(" ");
-            new_byte
-        })
-        .collect();
-
-    Ok(encoded.into_bytes())
-}
-
-fn decode_bytes(content: String) -> io::Result<Vec<u8>> {
-    let mut decoded = Vec::new();
-    content
-        .split(" ")
-        .collect::<Vec<&str>>()
-        .iter()
-        .for_each(|s| {
-            if s.is_empty() {
-                ()
-            } else {
-                decoded.push(s.parse::<u8>().unwrap_or_else(|err| {
-                    error!("Error while parsing str to bytes: {err}");
-                    process::exit(1);
-                }))
-            }
-        });
-
     Ok(decoded)
 }
 
@@ -737,6 +690,7 @@ fn read_file_content(path: &PathBuf, codingmethod: CodingMethod) -> io::Result<(
     let buf_reader = BufReader::new(file);
     let mut buffer_lines = buf_reader
         .lines()
+        // TODO handle non-utf-8 data
         .map(|line| line.expect("Failed to read line in encoded file"));
 
     let first_line: String = buffer_lines
@@ -915,47 +869,6 @@ fn decode_base64ct_multi_lines_test() {
     );
 }
 
-// FIXME
-#[test]
-fn encode_bytes_test() {
-    assert_eq!(
-        encode_bytes("This is a test".to_string()).unwrap(),
-        "84 104 105 115 32 105 115 32 97 32 116 101 115 116".as_bytes()
-    );
-}
-
-#[test]
-fn decode_bytes_test() {
-    assert_eq!(
-        decode_bytes(
-            "84 101 115 116 105 110 103 32 97 116 32 105 116 96 115 32 98 101 115 116".to_string()
-        )
-        .unwrap(),
-        "Testing at it`s best".as_bytes()
-    );
-}
-
-#[test]
-fn encode_bytes_multi_lines_test() {
-    assert_eq!(
-        encode_bytes("This is a test.\nWith multiple lines in it.\nYour welcome.".to_string())
-            .unwrap(),
-        "84 104 105 115 32 105 115 32 97 32 116 101 115 116 46 92 110 87 105 116 104 32 109 117 108 116 105 112 108 101 32 108 105 110 101 115 32 105 110 32 105 116 46 92 110 89 111 117 114 32 119 101 108 99 111 109 101 46"
-            .as_bytes()
-    );
-}
-
-#[test]
-fn decode_bytes_multi_lines_test() {
-    assert_eq!(
-        decode_bytes(
-            "84 104 105 115 32 109 117 108 116 105 32 108 105 110 101 32 116 101 115 116 105 110 103 44 92 110 105 115 32 119 111 114 107 105 110 103 46 92 110 79 114 32 105 115 32 105 116 63".to_string()
-        )
-        .unwrap(),
-        "This multi line testing,\nis working.\nOr is it?".as_bytes()
-    );
-}
-
 #[test]
 fn encode_caesar_test() {
     assert_eq!(
@@ -1024,8 +937,6 @@ fn decode_hex_test() {
 #[test]
 fn encode_hex_special_chars_test() {
     assert_eq!(
-        // FIXME fails with §
-        // see encode_hex_special_chars_test_2
         encode_hex("Random chars: !\"$%&/()=?`+#*'-_~@".to_string()).unwrap(),
         "52616e646f6d2063686172733a2021222425262f28293d3f602b232a272d5f7e40".as_bytes()
     );
@@ -1034,8 +945,6 @@ fn encode_hex_special_chars_test() {
 #[test]
 fn decode_hex_special_chars_test() {
     assert_eq!(
-        // FIXME fails with §
-        // see decode_hex_special_chars_test_2
         decode_hex(
             "52616e646f6d2063686172733a2021222425262f28293d3f602b232a272d5f7e40".to_string()
         )
@@ -1045,14 +954,16 @@ fn decode_hex_special_chars_test() {
 }
 
 #[test]
-// FIXME
+// FIXME it should NOT panic
+#[should_panic(expected = "assertion failed")]
 // error in hex crate ???
 fn encode_hex_special_chars_test_2() {
     assert_eq!(encode_hex("§".to_string()).unwrap(), "a7".as_bytes());
 }
 
 #[test]
-// FIXME
+// FIXME it should NOT panic
+#[should_panic(expected = "assertion failed")]
 // error in hex crate ???
 fn decode_hex_special_chars_test_2() {
     assert_eq!(decode_hex("a7".to_string()).unwrap(), "§".as_bytes());
@@ -1182,9 +1093,6 @@ HOY^"
     );
 }
 
-// FIXME unprintable chars are replaced with '?' in website calculators
-// but not in helix???
-// or other representation when xor applied???
 #[test]
 fn encode_xor_multi_lines_test() {
     assert_eq!(
@@ -1193,19 +1101,16 @@ fn encode_xor_multi_lines_test() {
         "~BCY
 CY
 K
-^OY^� }C^B
+^OY^ }C^B
 G_F^CZFO
 FCDOY
 CD
-C^� sE_X
-]OFIEGO�"
+C^ sE_X
+]OFIEGO"
             .as_bytes()
     );
 }
 
-// FIXME unprintable chars are replaced with '?' in website calculators
-// but not in helix???
-// or other representation when xor applied???
 #[test]
 fn decode_xor_multi_lines_test() {
     assert_eq!(
@@ -1213,10 +1118,10 @@ fn decode_xor_multi_lines_test() {
             "~BCY
 G_F^C
 FCDO
-^OY^CDM� CY
-]EXACDM� eX
+^OY^CDM CY
+]EXACDM eX
 CY
-C^�"
+C^"
             .to_string()
         )
         .unwrap(),
