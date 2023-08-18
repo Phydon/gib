@@ -35,17 +35,13 @@ enum CodingMethod {
 // available methods for en-/decoding // en-/decrypting
 #[derive(Debug, EnumIter)]
 enum Method {
-    // Ascii,
-    // AutoKey,
     Base64ct,
     Caesar,
     // ColumnarTransposition,
     // Feistel, // encrypt == decrypt (use as default?)
     Hex,
     L33t,
-    // OneTimePad,
     // RC4,
-    // Unicode (UTF-8),
     XOR,
 }
 
@@ -135,6 +131,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let list_flag = matches.get_flag("list");
     let password_flag = matches.get_flag("password");
     let copy_flag = matches.get_flag("copy");
+    let key_flag = matches.get_flag("key");
 
     if list_flag {
         // list all available en-/decoding // en-/decrypting methods
@@ -169,9 +166,9 @@ fn main() -> Result<(), Box<dyn Error>> {
             if password_flag {
                 let mut password = String::new();
                 loop {
-                    let pw = prompt_user_for_pw(pb.clone(), "Enter password".to_string());
+                    let pw = prompt_user_for_input(pb.clone(), "Enter password".to_string());
                     let pw_confirmation =
-                        prompt_user_for_pw(pb.clone(), "Confirm password".to_string());
+                        prompt_user_for_input(pb.clone(), "Confirm password".to_string());
 
                     if pw == pw_confirmation {
                         password.push_str(&pw);
@@ -196,6 +193,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             pb.set_style(encoding_spinner_style);
             pb.set_message(format!("{}", "encoding...".truecolor(250, 0, 104)));
 
+            // FIXME handle non-utf-8 data -> catch error and use another function instead
             let (_, content) = read_file_content(&path.to_path_buf(), CodingMethod::Encoding)?;
 
             let mut encoded = Vec::new();
@@ -220,7 +218,13 @@ fn main() -> Result<(), Box<dyn Error>> {
                     }
                 }
                 Method::XOR => {
-                    let mut xor_encoded_vec = encode_decode_xor(content)?;
+                    let mut key = String::new();
+                    if key_flag {
+                        let input = prompt_user_for_input(pb.clone(), "Enter a key".to_string());
+                        key.push_str(&input);
+                    }
+
+                    let mut xor_encoded_vec = encode_decode_xor(content, key)?;
                     encoded.append(&mut xor_encoded_vec);
                 }
             }
@@ -228,14 +232,16 @@ fn main() -> Result<(), Box<dyn Error>> {
             // write encoded / encrpyted content back to file
             write_file_content(&path.to_path_buf(), hash, &encoded)?;
             // FIXME error while decoding (e.g. xor encode and decode)
+            // FIXME removes a char at the end of line
         } else if let Some(method) = matches.get_one::<String>("decode") {
             // non utf-8 data could be written to file via encrypting methods
             // -> reading the encoded / encrypted content from the file must be handled
             // seperatly incase non utf-8 data from the file should be handled differently
+            // FIXME handle non-utf-8 data -> catch error and use another function instead
             let (hash, content) = read_file_content(&path.to_path_buf(), CodingMethod::Decoding)?;
 
             if password_flag {
-                let password = prompt_user_for_pw(pb.clone(), "Enter password".to_string());
+                let password = prompt_user_for_input(pb.clone(), "Enter password".to_string());
                 let verification = verify_hash(pb.clone(), hash, password);
                 if !verification {
                     warn!("Couldn`t verify password");
@@ -271,8 +277,14 @@ fn main() -> Result<(), Box<dyn Error>> {
                     }
                 }
                 Method::XOR => {
+                    let mut key = String::new();
+                    if key_flag {
+                        let input = prompt_user_for_input(pb.clone(), "Enter a key".to_string());
+                        key.push_str(&input);
+                    }
+
                     // FIXME
-                    let mut xor_decoded_vec = encode_decode_xor(content)?;
+                    let mut xor_decoded_vec = encode_decode_xor(content, key)?;
                     decoded.append(&mut xor_decoded_vec);
                 }
             }
@@ -339,7 +351,7 @@ fn gib() -> Command {
             "Quickly en-/decode // en-/decrypt files 'on the fly'",
         ))
         // TODO update version
-        .version("1.3.0")
+        .version("1.4.0")
         .author("Leann Phydon <leann.phydon@gmail.com>")
         .arg_required_else_help(true)
         .arg(
@@ -376,6 +388,22 @@ fn gib() -> Command {
                 .action(ArgAction::Set)
                 .num_args(1)
                 .value_name("ENCODING/ENCRYPTING METHOD"),
+        )
+        .arg(
+            Arg::new("key")
+                .short('k')
+                .long("key")
+                .help("Use a specific key for encoding")
+                .long_help(format!(
+                    "{}\n{}\n{}\n{}\n{}",
+                    "Use a specific key for encoding",
+                    "If the encoding method allows a custom key, you will get prompted to enter a key",
+                    "To decode this file again correctly, the same key must be used",
+                    "This flag gets ignored if the encoding method doesn`t allow a specific key",
+                    "This is NOT a password",
+                ))
+                .action(ArgAction::SetTrue)
+                .conflicts_with("list"),
         )
         .arg(
             Arg::new("l33t")
@@ -419,7 +447,7 @@ fn list_methods() {
     }
 }
 
-fn prompt_user_for_pw(pb: ProgressBar, msg: String) -> String {
+fn prompt_user_for_input(pb: ProgressBar, msg: String) -> String {
     pb.suspend(|| {
         println!("{}", msg);
     });
@@ -434,7 +462,7 @@ fn prompt_user_for_pw(pb: ProgressBar, msg: String) -> String {
 
     pb.enable_steady_tick(Duration::from_millis(120));
 
-    input
+    input.trim().to_string()
 }
 
 fn calculate_hash(pb: ProgressBar, password: String) -> String {
@@ -672,13 +700,60 @@ fn default_encoding(path: &PathBuf) -> io::Result<()> {
 
     Ok(())
 }
-fn encode_decode_xor(content: String) -> io::Result<Vec<u8>> {
-    let key = 42;
-    let encoded: Vec<u8> = content.as_bytes().iter().map(|c| c ^ key).collect();
+
+fn reduce_string(string: &mut String) -> String {
+    while string.len() >= (u64::MAX as usize).to_string().len() {
+        string.pop();
+    }
+
+    string.to_owned()
+}
+
+fn reduce_num(number: u64) -> u8 {
+    let mut num = number as f64;
+
+    while num > u8::MAX as f64 {
+        num = num.sqrt();
+    }
+
+    num.round() as u8
+}
+
+fn convert_string_to_number(string: String) -> u8 {
+    let mut s = String::new();
+    for b in string.into_bytes() {
+        s.push_str(&b.to_string());
+    }
+
+    let shrinked_s = reduce_string(&mut s);
+    // make sure that returning string len() isn`t out of range of u64
+    assert!(shrinked_s.len() < u64::MAX as usize);
+
+    let n: u64 = shrinked_s.parse().unwrap();
+
+    let num: u8 = reduce_num(n);
+    // make sure that returning number isn`t out of range of u8
+    assert!(num < u8::MAX);
+
+    num
+}
+
+// FIXME decodes to non-uf8-data, which cannot be read
+fn encode_decode_xor(content: String, key: String) -> io::Result<Vec<u8>> {
+    let mut keystring = String::new();
+    if key.is_empty() {
+        keystring.push_str("42");
+    } else {
+        keystring.push_str(&key);
+    }
+
+    let keynum = convert_string_to_number(keystring);
+    let encoded: Vec<u8> = content.as_bytes().iter().map(|c| c ^ keynum).collect();
 
     Ok(encoded)
 }
 
+// FIXME panics when reading non-utf-8 data -> extra function
 fn read_file_content(path: &PathBuf, codingmethod: CodingMethod) -> io::Result<(String, String)> {
     let file_size = fs::metadata(path)?.len();
     if file_size <= 0 {
@@ -1069,7 +1144,11 @@ fn decode_l33t_hard_multi_lines_test() {
 #[test]
 fn encode_xor_test() {
     assert_eq!(
-        encode_decode_xor("This is a test".to_string()).unwrap(),
+        encode_decode_xor(
+            "This is a test".to_string(),
+            "randomkeyfoundinherethatshouldnotbetobigforthisfunction".to_string()
+        )
+        .unwrap(),
         "~BCY
 CY
 K
@@ -1086,7 +1165,8 @@ fn decode_xor_test() {
 K^
 C^JY
 HOY^"
-                .to_string()
+                .to_string(),
+            "randomkey".to_string()
         )
         .unwrap(),
         "Testing at it`s best".as_bytes()
@@ -1096,8 +1176,11 @@ HOY^"
 #[test]
 fn encode_xor_multi_lines_test() {
     assert_eq!(
-        encode_decode_xor("This is a test.\nWith multiple lines in it.\nYour welcome.".to_string())
-            .unwrap(),
+        encode_decode_xor(
+            "This is a test.\nWith multiple lines in it.\nYour welcome.".to_string(),
+            "randomkey".to_string()
+        )
+        .unwrap(),
         "~BCY
 CY
 K
@@ -1122,7 +1205,8 @@ FCDO
 ]EXACDM eX
 CY
 C^"
-            .to_string()
+            .to_string(),
+            "randomkey".to_string()
         )
         .unwrap(),
         "This multi line testing,\nis working.\nOr is it?".as_bytes()
