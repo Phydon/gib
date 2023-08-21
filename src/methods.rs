@@ -4,11 +4,6 @@ use std::{process, str::FromStr};
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
-pub enum CodingMethod {
-    Decoding,
-    Encoding,
-}
-
 // TODO add more methods
 // available methods for en-/decoding // en-/decrypting
 #[derive(Debug, EnumIter)]

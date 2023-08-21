@@ -11,10 +11,9 @@ use crate::argon::{calculate_hash, verify_hash};
 use crate::base64ct::{decode_base64ct, encode_base64ct};
 use crate::caesar::{decode_caesar, encode_caesar};
 use crate::hex::{decode_hex, encode_hex};
-use crate::methods::{list_methods, CodingMethod, Method};
+use crate::methods::{list_methods, Method};
 use crate::utils::{
-    check_create_config_dir, make_file_copy, prompt_user_for_input, read_file_content,
-    read_non_utf8_file, show_log_file, write_file_content,
+    check_create_config_dir, make_file_copy, read_file_content, show_log_file, write_file_content,
 };
 use crate::xor::encode_decode_xor;
 use clap::{Arg, ArgAction, Command};
@@ -23,6 +22,7 @@ use indicatif::{ProgressBar, ProgressStyle};
 use l33t::encode_decode_l33t;
 use log::{error, info, warn};
 use owo_colors::colored::*;
+use utils::prompt_user_for_input;
 
 use std::{
     error::Error,
@@ -71,7 +71,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     // handle arguments
     let matches = gib().get_matches();
     let list_flag = matches.get_flag("list");
-    let password_flag = matches.get_flag("password");
+    let sign_flag = matches.get_flag("sign");
     let copy_flag = matches.get_flag("copy");
     let key_flag = matches.get_flag("key");
 
@@ -102,56 +102,37 @@ fn main() -> Result<(), Box<dyn Error>> {
             make_file_copy(pb.clone(), &path.to_path_buf(), &config_dir)?;
         }
 
+        // FIXME error when decoding base64
+        // read file
+        // no hash == emtpy hash
+        let mut hash = String::new();
+        let (h, content) = read_file_content(&path.to_path_buf())?;
+        hash.push_str(&h);
+
+        // TODO test this
+        // handle sign flag
+        if sign_flag {
+            if hash.is_empty() {
+                // calculate hash from file content
+                // TODO get content from file
+                let hash_string = calculate_hash(pb.clone(), &content);
+                hash.push_str(&hash_string);
+            } else {
+                let verification = verify_hash(pb.clone(), &hash, &content);
+                if !verification {
+                    warn!("Couldn`t verify file");
+                    process::exit(0);
+                }
+            }
+        }
+
         // start encoding / decoding
         if let Some(method) = matches.get_one::<String>("encode") {
-            let mut hash = String::new();
-            if password_flag {
-                let mut password = String::new();
-                loop {
-                    let pw = prompt_user_for_input(pb.clone(), "Enter password".to_string());
-                    let pw_confirmation =
-                        prompt_user_for_input(pb.clone(), "Confirm password".to_string());
-
-                    if pw == pw_confirmation {
-                        password.push_str(&pw);
-                        break;
-                    }
-
-                    pb.suspend(|| {
-                        println!(
-                            "{}",
-                            "Passwords didn`t match. Try again".truecolor(250, 0, 104)
-                        );
-                    });
-                }
-
-                let hash_string = calculate_hash(pb.clone(), password);
-                hash.push_str(&hash_string);
-            }
-
             let encoding_spinner_style = ProgressStyle::with_template("{spinner:.red} {msg}")
                 .unwrap()
                 .tick_strings(SPINNER_ARC);
             pb.set_style(encoding_spinner_style);
             pb.set_message(format!("{}", "encoding...".truecolor(250, 0, 104)));
-
-            // FIXME handle non-utf-8 data -> catch error and use another function instead
-            // let (_, content) = read_file_content(&path.to_path_buf(), CodingMethod::Encoding)?;
-            let mut content = String::new();
-            match read_file_content(&path.to_path_buf(), CodingMethod::Encoding) {
-                Ok((_, cont)) => content.push_str(&cont),
-                Err(err) => match err.kind() {
-                    io::ErrorKind::InvalidData => {
-                        let (_, cont) =
-                            read_non_utf8_file(&path.to_path_buf(), CodingMethod::Encoding)?;
-                        content.push_str(&cont);
-                    }
-                    _ => {
-                        error!("Unable to read file");
-                        process::exit(1);
-                    }
-                },
-            }
 
             let mut encoded = Vec::new();
             match method.parse::<Method>().unwrap() {
@@ -191,41 +172,6 @@ fn main() -> Result<(), Box<dyn Error>> {
             // FIXME error while decoding (e.g. xor encode and decode)
             // FIXME removes a char at the end of line
         } else if let Some(method) = matches.get_one::<String>("decode") {
-            // non utf-8 data could be written to file via encrypting methods
-            // -> reading the encoded / encrypted content from the file must be handled
-            // seperatly incase non utf-8 data from the file should be handled differently
-            // FIXME handle non-utf-8 data -> catch error and use another function instead
-            // let (hash, content) = read_file_content(&path.to_path_buf(), CodingMethod::Decoding)?;
-            let mut content = String::new();
-            let mut hash = String::new();
-            match read_file_content(&path.to_path_buf(), CodingMethod::Decoding) {
-                Ok((h, c)) => {
-                    content.push_str(&c);
-                    hash.push_str(&h);
-                }
-                Err(err) => match err.kind() {
-                    io::ErrorKind::InvalidData => {
-                        let (h, c) =
-                            read_non_utf8_file(&path.to_path_buf(), CodingMethod::Decoding)?;
-                        content.push_str(&c);
-                        hash.push_str(&h);
-                    }
-                    _ => {
-                        error!("Unable to read file");
-                        process::exit(1);
-                    }
-                },
-            }
-
-            if password_flag {
-                let password = prompt_user_for_input(pb.clone(), "Enter password".to_string());
-                let verification = verify_hash(pb.clone(), hash, password);
-                if !verification {
-                    warn!("Couldn`t verify password");
-                    process::exit(0);
-                }
-            }
-
             let decoding_spinner_style = ProgressStyle::with_template("{spinner:.red} {msg}")
                 .unwrap()
                 .tick_strings(SPINNER_ARC);
@@ -267,8 +213,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             }
 
             // write decoded / decrpyted content back to file
-            let empty_hash = String::new();
-            write_file_content(&path.to_path_buf(), empty_hash, &decoded)?;
+            write_file_content(&path.to_path_buf(), hash, &decoded)?;
         } else {
             // TODO what should be the default command if nothing is specified?
             // info!("Usage: 'gib [OPTIONS] [PATH] [COMMAND]'");
@@ -402,10 +347,10 @@ fn gib() -> Command {
                 .conflicts_with_all(["decode", "encode"]),
         )
         .arg(
-            Arg::new("password")
-                .short('p')
-                .long("password")
-                .help("Secure a file with a password")
+            Arg::new("sign")
+                .short('s')
+                .long("sign")
+                .help("Verify a file with a signature")
                 .action(ArgAction::SetTrue)
                 .conflicts_with("list"),
         )
@@ -418,31 +363,7 @@ fn gib() -> Command {
 }
 
 fn default_encoding(path: &PathBuf) -> io::Result<()> {
-    // let (_, content) = read_file_content(&path.to_path_buf(), CodingMethod::Encoding)?;
-    let mut content = String::new();
-    let hash = String::new();
-    match read_file_content(&path.to_path_buf(), CodingMethod::Encoding) {
-        Ok((_, c)) => {
-            content.push_str(&c);
-        }
-        Err(err) => match err.kind() {
-            io::ErrorKind::InvalidData => {
-                let (_, c) = read_non_utf8_file(&path.to_path_buf(), CodingMethod::Encoding)?;
-                content.push_str(&c);
-            }
-            _ => {
-                error!("Unable to read file");
-                process::exit(1);
-            }
-        },
-    }
+    todo!();
 
-    let mut encoded_base64 = Vec::new();
-    let mut tmp_base64_encoded_vec = encode_base64ct(content)?;
-    encoded_base64.append(&mut tmp_base64_encoded_vec);
-
-    // write encrpyted content back to file
-    write_file_content(&path.to_path_buf(), hash.clone(), &encoded_base64)?;
-
-    Ok(())
+    // Ok(())
 }

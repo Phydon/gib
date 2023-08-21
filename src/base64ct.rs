@@ -1,6 +1,6 @@
-use std::io;
-
 use base64ct::{Base64, Encoding};
+
+use std::io;
 
 pub fn encode_base64ct(content: String) -> io::Result<Vec<u8>> {
     let encoded = Base64::encode_string(content.as_bytes());
