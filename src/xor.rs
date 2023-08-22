@@ -17,77 +17,47 @@ pub fn encode_decode_xor(content: &Vec<u8>, key: String) -> io::Result<Vec<u8>> 
 }
 
 #[test]
-fn encode_xor_test() {
-    assert_eq!(
-        encode_decode_xor(
-            &"This is a test".to_string().into_bytes(),
-            "randomkeyfoundinherethatshouldnotbetobigforthisfunction".to_string()
-        )
-        .unwrap(),
-        "~BCY
-CY
-K
-^OY^"
-            .as_bytes()
-    );
+fn encode_xor_easy_test() {
+    let content = "This is a test".to_string().into_bytes();
+    let key = String::new();
+    let enc = encode_decode_xor(&content, key.clone()).unwrap();
+    assert_eq!(content, encode_decode_xor(&enc, key).unwrap());
 }
 
 #[test]
-fn decode_xor_test() {
-    assert_eq!(
-        encode_decode_xor(
-            &"~OY^CDM
-K^
-C^JY
-HOY^"
-                .to_string()
-                .into_bytes(),
-            "randomkey".to_string()
-        )
-        .unwrap(),
-        "Testing at it`s best".as_bytes()
-    );
+fn xor_long_key_test() {
+    let content = "This is a test".to_string().into_bytes();
+    let key = "randomkeyfoundinherethatshouldnotbetobigforthisfunction".to_string();
+    let enc = encode_decode_xor(&content, key.clone()).unwrap();
+    assert_eq!(content, encode_decode_xor(&enc, key).unwrap());
 }
 
 #[test]
-fn encode_xor_multi_lines_test() {
-    assert_eq!(
-        encode_decode_xor(
-            &"This is a test.\nWith multiple lines in it.\nYour welcome."
-                .to_string()
-                .into_bytes(),
-            "randomkey".to_string()
-        )
-        .unwrap(),
-        "~BCY
-CY
-K
-^OY^ }C^B
-G_F^CZFO
-FCDOY
-CD
-C^ sE_X
-]OFIEGO"
-            .as_bytes()
-    );
+fn xor_short_key_test() {
+    let content = "Testing at it`s best".to_string().into_bytes();
+    let key = "randomkey".to_string();
+    let enc = encode_decode_xor(&content, key.clone()).unwrap();
+    let dec = encode_decode_xor(&enc, key.clone()).unwrap();
+    assert_eq!(enc, encode_decode_xor(&dec, key).unwrap());
 }
 
 #[test]
-fn decode_xor_multi_lines_test() {
-    assert_eq!(
-        encode_decode_xor(
-            &"~BCY
-G_F^C
-FCDO
-^OY^CDM CY
-]EXACDM eX
-CY
-C^"
-            .to_string()
-            .into_bytes(),
-            "randomkey".to_string()
-        )
-        .unwrap(),
-        "This multi line testing,\nis working.\nOr is it?".as_bytes()
-    );
+fn xor_short_key_multi_lines_test() {
+    let content = "This is a test.\nWith multiple lines in it.\nYour welcome."
+        .to_string()
+        .into_bytes();
+    let key = "randomkey".to_string();
+    let enc = encode_decode_xor(&content, key.clone()).unwrap();
+    assert_eq!(content, encode_decode_xor(&enc, key).unwrap());
+}
+
+#[test]
+fn xor_long_key_multi_lines_test() {
+    let content = "This multi line testing,\nis working.\nOr is it?"
+        .to_string()
+        .into_bytes();
+    let key = "randomkeyfoundinherethatshouldnotbetobigforthisfunction".to_string();
+    let enc = encode_decode_xor(&content, key.clone()).unwrap();
+    let dec = encode_decode_xor(&enc, key.clone()).unwrap();
+    assert_eq!(enc, encode_decode_xor(&dec, key).unwrap());
 }

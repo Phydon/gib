@@ -13,6 +13,7 @@ pub enum Method {
     // ColumnarTransposition,
     // Feistel, // encrypt == decrypt (use as default?)
     Hex,
+    // LeannCrypt,
     L33t,
     // RC4,
     XOR,
