@@ -24,13 +24,7 @@ use log::{error, info, warn};
 use owo_colors::colored::*;
 use utils::{check_file_size, prompt_user_for_input, read_non_utf8, write_non_utf8_content};
 
-use std::{
-    error::Error,
-    io,
-    path::{Path, PathBuf},
-    process,
-    time::Duration,
-};
+use std::{error::Error, path::Path, process, time::Duration};
 
 pub const SPINNER_ARC: &[&str; 6] = &["◜", "◠", "◝", "◞", "◡", "◟"];
 
@@ -109,7 +103,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         // read file
 
-        // handle non utf8 content
+        // for handling non utf8 content
         let mut byte_content = Vec::new();
         // if methods write content separatly to file
         // set writing_done variable to true
@@ -190,9 +184,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                         key.push_str(&input);
                     }
 
-                    let byte_content = read_non_utf8(&path)?;
-
-                    let mut xor_encoded_vec = encode_decode_xor(&byte_content, key)?;
+                    let mut xor_encoded_vec = encode_decode_xor(&content.into_bytes(), key)?;
                     encoded.append(&mut xor_encoded_vec);
 
                     write_non_utf8_content(&path, &encoded)?;
@@ -200,7 +192,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 }
             }
 
-            // write encoded / encrpyted content back to file
+            // write encoded/encrpyted content back to file
             if !writing_done {
                 if byte_content.is_empty() {
                     // write utf8 data
@@ -209,9 +201,6 @@ fn main() -> Result<(), Box<dyn Error>> {
                     write_non_utf8_content(&path, &encoded)?;
                 }
             }
-
-            // FIXME error while decoding (e.g. xor encode and decode)
-            // FIXME removes a char at the end of line
         } else if let Some(method) = matches.get_one::<String>("decode") {
             let decoding_spinner_style = ProgressStyle::with_template("{spinner:.red} {msg}")
                 .unwrap()
@@ -247,11 +236,13 @@ fn main() -> Result<(), Box<dyn Error>> {
                         key.push_str(&input);
                     }
 
+                    // read in bytes here
                     let byte_content = read_non_utf8(&path)?;
 
                     let mut xor_decoded_vec = encode_decode_xor(&byte_content, key)?;
                     decoded.append(&mut xor_decoded_vec);
 
+                    // FIXME cuts off last line from origial file content
                     write_non_utf8_content(&path, &decoded)?;
                     writing_done = true;
                 }
@@ -267,14 +258,14 @@ fn main() -> Result<(), Box<dyn Error>> {
                 }
             }
         } else {
+            unimplemented!();
             // TODO what should be the default command if nothing is specified?
 
             // make copy in config directory
-            // TODO uncopy after testing is done
             // make_file_copy(pb.clone(), &path.to_path_buf(), &config_dir)?;
 
-            // default encoding
-            default_encoding(&path)?;
+            // // default encoding
+            // default_encoding(&path)?;
         }
 
         pb.finish_and_clear();
@@ -412,6 +403,7 @@ fn gib() -> Command {
         )
 }
 
-fn default_encoding(path: &PathBuf) -> io::Result<()> {
-    Ok(())
-}
+// TODO
+// fn default_encoding(path: &PathBuf) -> io::Result<()> {
+//     Ok(())
+// }

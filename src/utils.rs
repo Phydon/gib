@@ -136,6 +136,7 @@ pub fn read_non_utf8(path: &PathBuf) -> io::Result<Vec<u8>> {
     Ok(buf)
 }
 
+// FIXME cuts off last line from original file content
 pub fn write_non_utf8_content(path: &PathBuf, content: &Vec<u8>) -> io::Result<()> {
     let mut newfile = fs::OpenOptions::new()
         .write(true)
@@ -149,7 +150,6 @@ pub fn write_non_utf8_content(path: &PathBuf, content: &Vec<u8>) -> io::Result<(
 }
 
 pub fn write_utf8_content(path: &PathBuf, hash: String, content: &[u8]) -> io::Result<()> {
-    // FIXME when decoding (hex /) caesar -> no new lines
     let mut newfile = fs::OpenOptions::new()
         .write(true)
         .truncate(true)
