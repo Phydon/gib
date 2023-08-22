@@ -67,7 +67,7 @@ pub fn convert_string_to_number(string: String) -> u8 {
     num
 }
 
-fn check_file_size(path: &PathBuf) {
+pub fn check_file_size(path: &PathBuf) {
     let file_size = fs::metadata(path)
         .expect("Unable to read file metadata")
         .len();
@@ -77,58 +77,13 @@ fn check_file_size(path: &PathBuf) {
     }
 }
 
-fn try_open_file(path: &PathBuf) -> io::Result<Vec<String>> {
+// TODO write extra functions for extracting first line and rest
+pub fn read_file_content(path: &PathBuf) -> io::Result<(String, String)> {
     let file = fs::File::open(path)?;
     let buf_reader = BufReader::new(file);
-    let buffer_lines = buf_reader
-        .lines()
-        .map(|line| {
-            // if let Err(err) = line {
-            //     return Err(err);
-            // }
-            // Ok(line)
-
-            // if line.is_err() {
-            //     return;
-            // }
-
-            line.map_err(|err| return err)
-        })
-        .map(|line| line.unwrap())
-        .collect();
-
-    Ok(buffer_lines)
-}
-
-// TODO
-// fn open_non_utf8_file(path: &PathBuf) -> io::Result<Vec<String>> {
-//     todo!();
-// }
-
-pub fn read_file_content(path: &PathBuf) -> io::Result<(String, String)> {
-    let path = path.to_path_buf();
-
-    check_file_size(&path);
-
-    let buffer_lines = match try_open_file(&path) {
-        Ok(buf) => buf,
-        Err(err) => match err.kind() {
-            io::ErrorKind::InvalidData => {
-                // TODO handle non-utf8 data
-                // open_non_utf8_file(&path)?;
-                todo!();
-            }
-            _ => {
-                error!("Unable to read file");
-                process::exit(1);
-            }
-        },
-    };
+    let mut buffer_lines = buf_reader.lines().map(|line| line.unwrap());
 
     let first_line: String = buffer_lines
-        // TODO cloning here?? (bottleneck?)
-        .clone()
-        .into_iter()
         .next()
         .expect("The file shouldn`t be empty")
         .parse()
@@ -160,58 +115,40 @@ pub fn read_file_content(path: &PathBuf) -> io::Result<(String, String)> {
     Ok((hash, content))
 }
 
-// pub fn read_non_utf8_file(path: &PathBuf) -> io::Result<(String, String)> {
-//     check_file_size(&path.to_path_buf());
+pub fn read_non_utf8(path: &PathBuf) -> io::Result<Vec<u8>> {
+    let file = fs::File::open(path)?;
 
-//     let file = fs::File::open(path)?;
-//     let mut buf_reader = BufReader::new(file);
-//     let mut buf = Vec::new();
-//     // while let Ok() = buf_reader.read_until(0x0A as u8, &mut buf) {
-//     // }
-//     let _ = buf_reader
-//         // .read_until(0x0A as u8, &mut buf) // this reads line by line
-//         .read_until(0, &mut buf)
-//         .expect("Failed to read non-utf8 file into buffer");
+    let mut buf_reader = BufReader::new(file);
+    let mut buf = Vec::new();
 
-//     let mut buffer_lines = buf_reader
-//         .lines()
-//         // TODO handle non-utf-8 data
-//         .map(|line| line.expect("Failed to read line in encoded file"));
+    let _ = buf_reader.read_until(0x00, &mut buf)?; // read whole file (without new lines)
 
-//     // FIXME can`t read non-utf8 to String. or can it?
-//     let first_line: String = buffer_lines
-//         .next()
-//         .expect("The file shouldn`t be empty")
-//         .parse()
-//         .unwrap();
+    // while let Ok(char) = buf_reader.read_until(0x0A as u8, &mut buf) {
+    //     buf.push(0x0D); // CR
+    //     buf.push(0x0A); // LF
+    //     if char.eq(&0x00) {
+    //         // NULL -> EOF
+    //         break;
+    //     }
+    //     continue;
+    // } // this reads line by line
 
-//     let mut rest = String::new();
-//     for line in buffer_lines {
-//         rest.push_str(&line);
-//         rest.push_str("\n");
-//     }
+    Ok(buf)
+}
 
-//     //remove '\n' from last line
-//     rest.pop();
+pub fn write_non_utf8_content(path: &PathBuf, content: &Vec<u8>) -> io::Result<()> {
+    let mut newfile = fs::OpenOptions::new()
+        .write(true)
+        .truncate(true)
+        .create(true)
+        .open(path)?;
 
-//     let mut hash = String::new();
-//     let mut content = String::new();
-//     if first_line.contains("$argon2id$v=19$m=2097152,t=1,p=1") {
-//         hash.push_str(&first_line);
-//         content.push_str(&rest);
-//     } else {
-//         content.push_str(&first_line);
+    newfile.write_all(&content)?;
 
-//         if !rest.is_empty() {
-//             content.push_str("\n");
-//             content.push_str(&rest);
-//         }
-//     }
+    Ok(())
+}
 
-//     Ok((hash, content))
-// }
-
-pub fn write_file_content(path: &PathBuf, hash: String, content: &[u8]) -> io::Result<()> {
+pub fn write_utf8_content(path: &PathBuf, hash: String, content: &[u8]) -> io::Result<()> {
     // FIXME when decoding (hex /) caesar -> no new lines
     let mut newfile = fs::OpenOptions::new()
         .write(true)

@@ -2,8 +2,7 @@ use std::io;
 
 use crate::utils::convert_string_to_number;
 
-// FIXME decodes to non-uf8-data, which cannot be read
-pub fn encode_decode_xor(content: String, key: String) -> io::Result<Vec<u8>> {
+pub fn encode_decode_xor(content: &Vec<u8>, key: String) -> io::Result<Vec<u8>> {
     let mut keystring = String::new();
     if key.is_empty() {
         keystring.push_str("42");
@@ -12,7 +11,7 @@ pub fn encode_decode_xor(content: String, key: String) -> io::Result<Vec<u8>> {
     }
 
     let keynum = convert_string_to_number(keystring);
-    let encoded: Vec<u8> = content.as_bytes().iter().map(|c| c ^ keynum).collect();
+    let encoded: Vec<u8> = content.iter().map(|c| c ^ keynum).collect();
 
     Ok(encoded)
 }
@@ -21,7 +20,7 @@ pub fn encode_decode_xor(content: String, key: String) -> io::Result<Vec<u8>> {
 fn encode_xor_test() {
     assert_eq!(
         encode_decode_xor(
-            "This is a test".to_string(),
+            &"This is a test".to_string().into_bytes(),
             "randomkeyfoundinherethatshouldnotbetobigforthisfunction".to_string()
         )
         .unwrap(),
@@ -37,11 +36,12 @@ K
 fn decode_xor_test() {
     assert_eq!(
         encode_decode_xor(
-            "~OY^CDM
+            &"~OY^CDM
 K^
 C^JY
 HOY^"
-                .to_string(),
+                .to_string()
+                .into_bytes(),
             "randomkey".to_string()
         )
         .unwrap(),
@@ -53,7 +53,9 @@ HOY^"
 fn encode_xor_multi_lines_test() {
     assert_eq!(
         encode_decode_xor(
-            "This is a test.\nWith multiple lines in it.\nYour welcome.".to_string(),
+            &"This is a test.\nWith multiple lines in it.\nYour welcome."
+                .to_string()
+                .into_bytes(),
             "randomkey".to_string()
         )
         .unwrap(),
@@ -74,14 +76,15 @@ C^ sE_X
 fn decode_xor_multi_lines_test() {
     assert_eq!(
         encode_decode_xor(
-            "~BCY
+            &"~BCY
 G_F^C
 FCDO
 ^OY^CDM CY
 ]EXACDM eX
 CY
 C^"
-            .to_string(),
+            .to_string()
+            .into_bytes(),
             "randomkey".to_string()
         )
         .unwrap(),

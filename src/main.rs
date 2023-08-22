@@ -13,7 +13,7 @@ use crate::caesar::{decode_caesar, encode_caesar};
 use crate::hex::{decode_hex, encode_hex};
 use crate::methods::{list_methods, Method};
 use crate::utils::{
-    check_create_config_dir, make_file_copy, read_file_content, show_log_file, write_file_content,
+    check_create_config_dir, make_file_copy, read_file_content, show_log_file, write_utf8_content,
 };
 use crate::xor::encode_decode_xor;
 use clap::{Arg, ArgAction, Command};
@@ -22,7 +22,7 @@ use indicatif::{ProgressBar, ProgressStyle};
 use l33t::encode_decode_l33t;
 use log::{error, info, warn};
 use owo_colors::colored::*;
-use utils::prompt_user_for_input;
+use utils::{check_file_size, prompt_user_for_input, read_non_utf8, write_non_utf8_content};
 
 use std::{
     error::Error,
@@ -87,6 +87,8 @@ fn main() -> Result<(), Box<dyn Error>> {
             process::exit(0);
         }
 
+        let path = path.to_path_buf();
+
         // TODO limit max filesize??
 
         // TODO use threading for multiple file input
@@ -102,12 +104,38 @@ fn main() -> Result<(), Box<dyn Error>> {
             make_file_copy(pb.clone(), &path.to_path_buf(), &config_dir)?;
         }
 
-        // FIXME error when decoding base64
+        // close if file is empty
+        check_file_size(&path);
+
         // read file
-        // no hash == emtpy hash
+
+        // handle non utf8 content
+        let mut byte_content = Vec::new();
+        // if methods write content separatly to file
+        // set writing_done variable to true
+        let mut writing_done = false;
+
+        // try read file content
+        let mut content = String::new();
+        // emtpy hash == no hash
         let mut hash = String::new();
-        let (h, content) = read_file_content(&path.to_path_buf())?;
-        hash.push_str(&h);
+
+        if let Ok((h, c)) = read_file_content(&path) {
+            // try read utf8
+            content.push_str(&c);
+            hash.push_str(&h);
+        } else {
+            match read_non_utf8(&path) {
+                // try read bytes
+                Ok(mut b) => {
+                    byte_content.append(b.as_mut());
+                }
+                Err(err) => {
+                    error!("Unable to read file: {}", err);
+                    process::exit(1);
+                }
+            }
+        }
 
         // TODO test this
         // handle sign flag
@@ -162,13 +190,26 @@ fn main() -> Result<(), Box<dyn Error>> {
                         key.push_str(&input);
                     }
 
-                    let mut xor_encoded_vec = encode_decode_xor(content, key)?;
+                    let byte_content = read_non_utf8(&path)?;
+
+                    let mut xor_encoded_vec = encode_decode_xor(&byte_content, key)?;
                     encoded.append(&mut xor_encoded_vec);
+
+                    write_non_utf8_content(&path, &encoded)?;
+                    writing_done = true;
                 }
             }
 
             // write encoded / encrpyted content back to file
-            write_file_content(&path.to_path_buf(), hash, &encoded)?;
+            if !writing_done {
+                if byte_content.is_empty() {
+                    // write utf8 data
+                    write_utf8_content(&path, hash, &encoded)?;
+                } else {
+                    write_non_utf8_content(&path, &encoded)?;
+                }
+            }
+
             // FIXME error while decoding (e.g. xor encode and decode)
             // FIXME removes a char at the end of line
         } else if let Some(method) = matches.get_one::<String>("decode") {
@@ -206,25 +247,34 @@ fn main() -> Result<(), Box<dyn Error>> {
                         key.push_str(&input);
                     }
 
-                    // FIXME
-                    let mut xor_decoded_vec = encode_decode_xor(content, key)?;
+                    let byte_content = read_non_utf8(&path)?;
+
+                    let mut xor_decoded_vec = encode_decode_xor(&byte_content, key)?;
                     decoded.append(&mut xor_decoded_vec);
+
+                    write_non_utf8_content(&path, &decoded)?;
+                    writing_done = true;
                 }
             }
 
             // write decoded / decrpyted content back to file
-            write_file_content(&path.to_path_buf(), hash, &decoded)?;
+            if !writing_done {
+                if byte_content.is_empty() {
+                    // write utf8 data
+                    write_utf8_content(&path, hash, &decoded)?;
+                } else {
+                    write_non_utf8_content(&path, &decoded)?;
+                }
+            }
         } else {
             // TODO what should be the default command if nothing is specified?
-            // info!("Usage: 'gib [OPTIONS] [PATH] [COMMAND]'");
-            // info!("Type: 'gib help' to get more information");
-            // process::exit(0);
 
             // make copy in config directory
-            make_file_copy(pb.clone(), &path.to_path_buf(), &config_dir)?;
+            // TODO uncopy after testing is done
+            // make_file_copy(pb.clone(), &path.to_path_buf(), &config_dir)?;
 
             // default encoding
-            default_encoding(&path.to_path_buf())?;
+            default_encoding(&path)?;
         }
 
         pb.finish_and_clear();
@@ -363,7 +413,5 @@ fn gib() -> Command {
 }
 
 fn default_encoding(path: &PathBuf) -> io::Result<()> {
-    todo!();
-
-    // Ok(())
+    Ok(())
 }
