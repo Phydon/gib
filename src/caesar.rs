@@ -27,7 +27,6 @@ pub fn encode_caesar(content: String) -> io::Result<Vec<u8>> {
 }
 
 // based on https://github.com/TheAlgorithms/Rust
-// FIXME no new lines when writing decoded content back to file
 pub fn decode_caesar(content: String) -> io::Result<Vec<u8>> {
     // TODO get key from user
     // key = 13 == ROT13 (encrypting and decrypting is its own inverse)

@@ -167,7 +167,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                     encoded.append(&mut caesar_encoded_vec);
                 }
                 Method::Hex => {
-                    let mut hex_encoded_vec = encode_hex(content)?;
+                    let mut hex_encoded_vec = encode_hex(content.into_bytes())?;
                     encoded.append(&mut hex_encoded_vec);
                 }
                 Method::L33t => {
@@ -242,7 +242,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                     let mut xor_decoded_vec = encode_decode_xor(&byte_content, key)?;
                     decoded.append(&mut xor_decoded_vec);
 
-                    // FIXME cuts off last line from origial file content
+                    // FIXME cuts off last line from origial file content when xor when xor
                     write_non_utf8_content(&path, &decoded)?;
                     writing_done = true;
                 }
@@ -314,7 +314,7 @@ fn gib() -> Command {
             "Quickly en-/decode // en-/decrypt files 'on the fly'",
         ))
         // TODO update version
-        .version("1.5.1")
+        .version("1.5.2")
         .author("Leann Phydon <leann.phydon@gmail.com>")
         .arg_required_else_help(true)
         .arg(
