@@ -24,6 +24,8 @@ use log::{error, info, warn};
 use owo_colors::colored::*;
 use utils::{check_file_size, prompt_user_for_input, read_non_utf8, write_non_utf8_content};
 
+use std::io;
+use std::path::PathBuf;
 use std::{error::Error, path::Path, process, time::Duration};
 
 pub const SPINNER_ARC: &[&str; 6] = &["◜", "◠", "◝", "◞", "◡", "◟"];
@@ -95,7 +97,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         // handle copy flag
         if copy_flag {
-            make_file_copy(pb.clone(), &path.to_path_buf(), &config_dir)?;
+            make_file_copy(pb.clone(), &path, &config_dir)?;
         }
 
         // close if file is empty
@@ -258,14 +260,13 @@ fn main() -> Result<(), Box<dyn Error>> {
                 }
             }
         } else {
-            unimplemented!();
             // TODO what should be the default command if nothing is specified?
 
             // make copy in config directory
-            // make_file_copy(pb.clone(), &path.to_path_buf(), &config_dir)?;
+            make_file_copy(pb.clone(), &path, &config_dir)?;
 
             // // default encoding
-            // default_encoding(&path)?;
+            default_encoding(&path, content)?;
         }
 
         pb.finish_and_clear();
@@ -403,7 +404,15 @@ fn gib() -> Command {
         )
 }
 
-// TODO
-// fn default_encoding(path: &PathBuf) -> io::Result<()> {
-//     Ok(())
-// }
+// TODO add default_decoding
+fn default_encoding(path: &PathBuf, content: String) -> io::Result<()> {
+    // first xor than hex
+    let hash = String::new();
+    let key = String::new();
+    let xored = encode_decode_xor(&content.into_bytes(), key)?;
+    let encoded = encode_hex(xored)?;
+
+    write_utf8_content(&path, hash, &encoded)?;
+
+    Ok(())
+}
