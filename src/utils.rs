@@ -136,8 +136,6 @@ pub fn read_non_utf8(path: &PathBuf) -> io::Result<Vec<u8>> {
     Ok(buf)
 }
 
-// FIXME cuts off last line from original file content when xor
-// maybe when reading in the non-utf8 content??
 pub fn write_non_utf8_content(path: &PathBuf, content: &Vec<u8>) -> io::Result<()> {
     let mut newfile = fs::OpenOptions::new()
         .write(true)

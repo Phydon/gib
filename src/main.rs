@@ -97,22 +97,27 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         // handle copy flag
         if copy_flag {
+            pb.set_message(format!("{}", "making backup...".truecolor(250, 0, 104)));
+            // TODO check if copying works correctly
             make_file_copy(pb.clone(), &path, &config_dir)?;
         }
+
+        // read file
+        pb.set_message(format!("{}", "reading file...".truecolor(250, 0, 104)));
 
         // close if file is empty
         check_file_size(&path);
 
-        // read file
-
-        // for handling non utf8 content
-        let mut byte_content = Vec::new();
+        // TODO remove this var later
         // if methods write content separatly to file
         // set writing_done variable to true
         let mut writing_done = false;
 
         // try read file content
         let mut content = String::new();
+        // for handling non utf8 content
+        let mut byte_content = Vec::new();
+
         // emtpy hash == no hash
         let mut hash = String::new();
 
@@ -121,6 +126,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             content.push_str(&c);
             hash.push_str(&h);
         } else {
+            pb.suspend(|| println!("{}", "Found non-UTF8 file.".on_red()));
             match read_non_utf8(&path) {
                 // try read bytes
                 Ok(mut b) => {
@@ -132,6 +138,10 @@ fn main() -> Result<(), Box<dyn Error>> {
                 }
             }
         }
+        // FIXME how to identify non-utf8 content??
+        dbg!(&content);
+        dbg!(&byte_content);
+        dbg!(&hash);
 
         // TODO test this
         // handle sign flag
@@ -151,6 +161,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
 
         // start encoding / decoding
+        let mut encoded_decoded_content = Vec::new();
         if let Some(method) = matches.get_one::<String>("encode") {
             let encoding_spinner_style = ProgressStyle::with_template("{spinner:.red} {msg}")
                 .unwrap()
@@ -158,25 +169,24 @@ fn main() -> Result<(), Box<dyn Error>> {
             pb.set_style(encoding_spinner_style);
             pb.set_message(format!("{}", "encoding...".truecolor(250, 0, 104)));
 
-            let mut encoded = Vec::new();
             match method.parse::<Method>().unwrap() {
                 Method::Base64ct => {
                     let mut base64ct_encoded_vec = encode_base64ct(content)?;
-                    encoded.append(&mut base64ct_encoded_vec);
+                    encoded_decoded_content.append(&mut base64ct_encoded_vec);
                 }
                 Method::Caesar => {
                     let mut caesar_encoded_vec = encode_caesar(content)?;
-                    encoded.append(&mut caesar_encoded_vec);
+                    encoded_decoded_content.append(&mut caesar_encoded_vec);
                 }
                 Method::Hex => {
                     let mut hex_encoded_vec = encode_hex(content.into_bytes())?;
-                    encoded.append(&mut hex_encoded_vec);
+                    encoded_decoded_content.append(&mut hex_encoded_vec);
                 }
                 Method::L33t => {
                     // there should always be at least the default mode
                     if let Some(mode) = matches.get_one::<String>("l33t") {
                         let mut l33t_encoded_vec = encode_decode_l33t(content, mode)?;
-                        encoded.append(&mut l33t_encoded_vec);
+                        encoded_decoded_content.append(&mut l33t_encoded_vec);
                     }
                 }
                 Method::XOR => {
@@ -187,20 +197,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                     }
 
                     let mut xor_encoded_vec = encode_decode_xor(&content.into_bytes(), key)?;
-                    encoded.append(&mut xor_encoded_vec);
-
-                    write_non_utf8_content(&path, &encoded)?;
-                    writing_done = true;
-                }
-            }
-
-            // write encoded/encrpyted content back to file
-            if !writing_done {
-                if byte_content.is_empty() {
-                    // write utf8 data
-                    write_utf8_content(&path, hash, &encoded)?;
-                } else {
-                    write_non_utf8_content(&path, &encoded)?;
+                    encoded_decoded_content.append(&mut xor_encoded_vec);
                 }
             }
         } else if let Some(method) = matches.get_one::<String>("decode") {
@@ -210,25 +207,24 @@ fn main() -> Result<(), Box<dyn Error>> {
             pb.set_style(decoding_spinner_style);
             pb.set_message(format!("{}", "decoding...".truecolor(250, 0, 104)));
 
-            let mut decoded = Vec::new();
             match method.parse::<Method>().unwrap() {
                 Method::Base64ct => {
                     let mut base64ct_decoded_vec = decode_base64ct(content)?;
-                    decoded.append(&mut base64ct_decoded_vec);
+                    encoded_decoded_content.append(&mut base64ct_decoded_vec);
                 }
                 Method::Caesar => {
                     let mut caesar_decoded_vec = decode_caesar(content)?;
-                    decoded.append(&mut caesar_decoded_vec);
+                    encoded_decoded_content.append(&mut caesar_decoded_vec);
                 }
                 Method::Hex => {
-                    let mut hex_decoded_vec = decode_hex(content)?;
-                    decoded.append(&mut hex_decoded_vec);
+                    let mut hex_decoded_vec = decode_hex(content.into_bytes())?;
+                    encoded_decoded_content.append(&mut hex_decoded_vec);
                 }
                 Method::L33t => {
                     // there should always be at least the default mode
                     if let Some(mode) = matches.get_one::<String>("l33t") {
                         let mut l33t_decoded_vec = encode_decode_l33t(content, mode)?;
-                        decoded.append(&mut l33t_decoded_vec);
+                        encoded_decoded_content.append(&mut l33t_decoded_vec);
                     }
                 }
                 Method::XOR => {
@@ -238,25 +234,20 @@ fn main() -> Result<(), Box<dyn Error>> {
                         key.push_str(&input);
                     }
 
-                    // read in bytes here
-                    let byte_content = read_non_utf8(&path)?;
+                    // read file as non utf8,
+                    match read_non_utf8(&path) {
+                        // try read bytes
+                        Ok(mut b) => {
+                            byte_content.append(b.as_mut());
+                        }
+                        Err(err) => {
+                            error!("Unable to read file: {}", err);
+                            process::exit(1);
+                        }
+                    }
 
                     let mut xor_decoded_vec = encode_decode_xor(&byte_content, key)?;
-                    decoded.append(&mut xor_decoded_vec);
-
-                    // FIXME cuts off last line from origial file content when xor when xor
-                    write_non_utf8_content(&path, &decoded)?;
-                    writing_done = true;
-                }
-            }
-
-            // write decoded / decrpyted content back to file
-            if !writing_done {
-                if byte_content.is_empty() {
-                    // write utf8 data
-                    write_utf8_content(&path, hash, &decoded)?;
-                } else {
-                    write_non_utf8_content(&path, &decoded)?;
+                    encoded_decoded_content.append(&mut xor_decoded_vec);
                 }
             }
         } else {
@@ -267,6 +258,18 @@ fn main() -> Result<(), Box<dyn Error>> {
 
             // // default encoding
             default_encoding(&path, content)?;
+            // TODO remove this var later
+            writing_done = true;
+        }
+
+        // write encoded/encrypted // decoded/decrpyted content back to file
+        if !writing_done {
+            if byte_content.is_empty() {
+                // write utf8 data
+                write_utf8_content(&path, hash, &encoded_decoded_content)?;
+            } else {
+                write_non_utf8_content(&path, &encoded_decoded_content)?;
+            }
         }
 
         pb.finish_and_clear();
@@ -406,13 +409,24 @@ fn gib() -> Command {
 
 // TODO add default_decoding
 fn default_encoding(path: &PathBuf, content: String) -> io::Result<()> {
-    // first xor than hex
-    let hash = String::new();
-    let key = String::new();
-    let xored = encode_decode_xor(&content.into_bytes(), key)?;
-    let encoded = encode_hex(xored)?;
+    // let hash = String::new();
+    // let key = String::new();
+    // let xored = encode_decode_xor(&content.clone().into_bytes(), key.clone())?;
+    // let encoded = encode_hex(xored)?;
+    let b64 = encode_base64ct(content)?;
+    let encoded = encode_hex(b64)?;
 
-    write_utf8_content(&path, hash, &encoded)?;
+    // write_utf8_content(&path, hash.clone(), &encoded)?;
+    write_non_utf8_content(&path, &encoded)?;
+
+    // read in bytes here
+    let byte_content = read_non_utf8(&path)?;
+
+    let hex_decoded = decode_hex(byte_content)?;
+    let decoded = decode_base64ct(String::from_utf8(hex_decoded).unwrap())?;
+
+    // write_utf8_content(&path, hash, &decoded)?;
+    write_non_utf8_content(&path, &decoded)?;
 
     Ok(())
 }

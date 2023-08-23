@@ -2,6 +2,7 @@ use std::io;
 
 use crate::utils::convert_string_to_number;
 
+// FIXME sometimes it cuts of last line
 pub fn encode_decode_xor(content: &Vec<u8>, key: String) -> io::Result<Vec<u8>> {
     let mut keystring = String::new();
     if key.is_empty() {
