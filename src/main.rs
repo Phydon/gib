@@ -139,16 +139,14 @@ fn main() -> Result<(), Box<dyn Error>> {
             }
         }
         // FIXME how to identify non-utf8 content??
-        dbg!(&content);
-        dbg!(&byte_content);
-        dbg!(&hash);
+        // dbg!(&content);
+        // dbg!(&byte_content);
+        // dbg!(&hash);
 
-        // TODO test this
         // handle sign flag
         if sign_flag {
             if hash.is_empty() {
                 // calculate hash from file content
-                // TODO get content from file
                 let hash_string = calculate_hash(pb.clone(), &content);
                 hash.push_str(&hash_string);
             } else {
@@ -157,6 +155,12 @@ fn main() -> Result<(), Box<dyn Error>> {
                     warn!("Couldn`t verify file");
                     process::exit(0);
                 }
+
+                // // if verification is ok -> empty hash?
+                // hash.clear();
+                pb.suspend(|| {
+                    println!("{}", "Verification successful".green());
+                })
             }
         }
 
@@ -171,21 +175,21 @@ fn main() -> Result<(), Box<dyn Error>> {
 
             match method.parse::<Method>().unwrap() {
                 Method::Base64ct => {
-                    let mut base64ct_encoded_vec = encode_base64ct(content)?;
+                    let mut base64ct_encoded_vec = encode_base64ct(&content)?;
                     encoded_decoded_content.append(&mut base64ct_encoded_vec);
                 }
                 Method::Caesar => {
-                    let mut caesar_encoded_vec = encode_caesar(content)?;
+                    let mut caesar_encoded_vec = encode_caesar(&content)?;
                     encoded_decoded_content.append(&mut caesar_encoded_vec);
                 }
                 Method::Hex => {
-                    let mut hex_encoded_vec = encode_hex(content.into_bytes())?;
+                    let mut hex_encoded_vec = encode_hex(&content.clone().into_bytes())?;
                     encoded_decoded_content.append(&mut hex_encoded_vec);
                 }
                 Method::L33t => {
                     // there should always be at least the default mode
                     if let Some(mode) = matches.get_one::<String>("l33t") {
-                        let mut l33t_encoded_vec = encode_decode_l33t(content, mode)?;
+                        let mut l33t_encoded_vec = encode_decode_l33t(&content, mode)?;
                         encoded_decoded_content.append(&mut l33t_encoded_vec);
                     }
                 }
@@ -196,7 +200,8 @@ fn main() -> Result<(), Box<dyn Error>> {
                         key.push_str(&input);
                     }
 
-                    let mut xor_encoded_vec = encode_decode_xor(&content.into_bytes(), key)?;
+                    let mut xor_encoded_vec =
+                        encode_decode_xor(&content.clone().into_bytes(), key)?;
                     encoded_decoded_content.append(&mut xor_encoded_vec);
                 }
             }
@@ -209,21 +214,21 @@ fn main() -> Result<(), Box<dyn Error>> {
 
             match method.parse::<Method>().unwrap() {
                 Method::Base64ct => {
-                    let mut base64ct_decoded_vec = decode_base64ct(content)?;
+                    let mut base64ct_decoded_vec = decode_base64ct(&content)?;
                     encoded_decoded_content.append(&mut base64ct_decoded_vec);
                 }
                 Method::Caesar => {
-                    let mut caesar_decoded_vec = decode_caesar(content)?;
+                    let mut caesar_decoded_vec = decode_caesar(&content)?;
                     encoded_decoded_content.append(&mut caesar_decoded_vec);
                 }
                 Method::Hex => {
-                    let mut hex_decoded_vec = decode_hex(content.into_bytes())?;
+                    let mut hex_decoded_vec = decode_hex(&content.clone().into_bytes())?;
                     encoded_decoded_content.append(&mut hex_decoded_vec);
                 }
                 Method::L33t => {
                     // there should always be at least the default mode
                     if let Some(mode) = matches.get_one::<String>("l33t") {
-                        let mut l33t_decoded_vec = encode_decode_l33t(content, mode)?;
+                        let mut l33t_decoded_vec = encode_decode_l33t(&content, mode)?;
                         encoded_decoded_content.append(&mut l33t_decoded_vec);
                     }
                 }
@@ -250,23 +255,17 @@ fn main() -> Result<(), Box<dyn Error>> {
                     encoded_decoded_content.append(&mut xor_decoded_vec);
                 }
             }
-        } else {
-            // TODO what should be the default command if nothing is specified?
-
-            // make copy in config directory
-            make_file_copy(pb.clone(), &path, &config_dir)?;
-
-            // // default encoding
-            default_encoding(&path, content)?;
-            // TODO remove this var later
-            writing_done = true;
         }
 
         // write encoded/encrypted // decoded/decrpyted content back to file
         if !writing_done {
             if byte_content.is_empty() {
                 // write utf8 data
-                write_utf8_content(&path, hash, &encoded_decoded_content)?;
+                if encoded_decoded_content.is_empty() {
+                    write_utf8_content(&path, hash, &content.as_bytes())?;
+                } else {
+                    write_utf8_content(&path, hash, &encoded_decoded_content)?;
+                }
             } else {
                 write_non_utf8_content(&path, &encoded_decoded_content)?;
             }
@@ -407,26 +406,26 @@ fn gib() -> Command {
         )
 }
 
-// TODO add default_decoding
-fn default_encoding(path: &PathBuf, content: String) -> io::Result<()> {
-    // let hash = String::new();
-    // let key = String::new();
-    // let xored = encode_decode_xor(&content.clone().into_bytes(), key.clone())?;
-    // let encoded = encode_hex(xored)?;
-    let b64 = encode_base64ct(content)?;
-    let encoded = encode_hex(b64)?;
+// TODO add default_decoding??
+// fn default_encoding(path: &PathBuf, content: &String) -> io::Result<()> {
+//     // let hash = String::new();
+//     // let key = String::new();
+//     // let xored = encode_decode_xor(&content.clone().into_bytes(), key.clone())?;
+//     // let encoded = encode_hex(xored)?;
+//     let b64 = encode_base64ct(content)?;
+//     let encoded = encode_hex(&b64)?;
 
-    // write_utf8_content(&path, hash.clone(), &encoded)?;
-    write_non_utf8_content(&path, &encoded)?;
+//     // write_utf8_content(&path, hash.clone(), &encoded)?;
+//     write_non_utf8_content(&path, &encoded)?;
 
-    // read in bytes here
-    let byte_content = read_non_utf8(&path)?;
+//     // read in bytes here
+//     let byte_content = read_non_utf8(&path)?;
 
-    let hex_decoded = decode_hex(byte_content)?;
-    let decoded = decode_base64ct(String::from_utf8(hex_decoded).unwrap())?;
+//     let hex_decoded = decode_hex(&byte_content)?;
+//     let decoded = decode_base64ct(&String::from_utf8(hex_decoded).unwrap())?;
 
-    // write_utf8_content(&path, hash, &decoded)?;
-    write_non_utf8_content(&path, &decoded)?;
+//     // write_utf8_content(&path, hash, &decoded)?;
+//     write_non_utf8_content(&path, &decoded)?;
 
-    Ok(())
-}
+//     Ok(())
+// }

@@ -116,7 +116,7 @@ fn l33t_alphabet_soft() -> HashMap<&'static str, &'static str> {
     l33t_alphabet
 }
 
-pub fn encode_decode_l33t(content: String, mode: &String) -> io::Result<Vec<u8>> {
+pub fn encode_decode_l33t(content: &String, mode: &String) -> io::Result<Vec<u8>> {
     let l33t_alphabet = match mode.parse::<L33t>().unwrap() {
         L33t::Hard => l33t_alphabet_hard(),
         L33t::Soft => l33t_alphabet_soft(),
@@ -137,7 +137,7 @@ pub fn encode_decode_l33t(content: String, mode: &String) -> io::Result<Vec<u8>>
 #[test]
 fn encode_l33t_soft_test() {
     assert_eq!(
-        encode_decode_l33t("This is a test".to_string(), &"soft".to_string()).unwrap(),
+        encode_decode_l33t(&"This is a test".to_string(), &"soft".to_string()).unwrap(),
         "Th!5 !5 4 7357".as_bytes()
     );
 }
@@ -145,7 +145,7 @@ fn encode_l33t_soft_test() {
 #[test]
 fn decode_l33t_soft_test() {
     assert_eq!(
-        encode_decode_l33t("T357!n6 47 !7`5 8357".to_string(), &"soft".to_string()).unwrap(),
+        encode_decode_l33t(&"T357!n6 47 !7`5 8357".to_string(), &"soft".to_string()).unwrap(),
         "Testing at it`s best".as_bytes()
     );
 }
@@ -154,7 +154,7 @@ fn decode_l33t_soft_test() {
 fn encode_l33t_soft_multi_lines_test() {
     assert_eq!(
         encode_decode_l33t(
-            "This is a test.\nWith multiple lines in it.\nYour welcome.".to_string(),
+            &"This is a test.\nWith multiple lines in it.\nYour welcome.".to_string(),
             &"soft".to_string()
         )
         .unwrap(),
@@ -166,7 +166,7 @@ fn encode_l33t_soft_multi_lines_test() {
 fn decode_l33t_soft_multi_lines_test() {
     assert_eq!(
         encode_decode_l33t(
-            "Th!5 mu17! 1!n3 7357!n6,\n!5 w0rk!n6.\nOr !5 !7?".to_string(),
+            &"Th!5 mu17! 1!n3 7357!n6,\n!5 w0rk!n6.\nOr !5 !7?".to_string(),
             &"soft".to_string()
         )
         .unwrap(),
@@ -177,7 +177,7 @@ fn decode_l33t_soft_multi_lines_test() {
 #[test]
 fn encode_l33t_hard_test() {
     assert_eq!(
-        encode_decode_l33t("This is a test".to_string(), &"hard".to_string()).unwrap(),
+        encode_decode_l33t(&"This is a test".to_string(), &"hard".to_string()).unwrap(),
         "T#!5 !5 @ 7357".as_bytes()
     );
 }
@@ -185,7 +185,7 @@ fn encode_l33t_hard_test() {
 #[test]
 fn decode_l33t_hard_test() {
     assert_eq!(
-        encode_decode_l33t("T357!n6 @7 !7`5 8357".to_string(), &"hard".to_string()).unwrap(),
+        encode_decode_l33t(&"T357!n6 @7 !7`5 8357".to_string(), &"hard".to_string()).unwrap(),
         "Testing at it`s best".as_bytes()
     );
 }
@@ -194,7 +194,7 @@ fn decode_l33t_hard_test() {
 fn encode_l33t_hard_multi_lines_test() {
     assert_eq!(
         encode_decode_l33t(
-            "This is a test.\nWith multiple lines in it.\nYour welcome.".to_string(),
+            &"This is a test.\nWith multiple lines in it.\nYour welcome.".to_string(),
             &"hard".to_string()
         )
         .unwrap(),
@@ -206,7 +206,7 @@ fn encode_l33t_hard_multi_lines_test() {
 fn decode_l33t_hard_multi_lines_test() {
     assert_eq!(
         encode_decode_l33t(
-            "T#!5 mu17! 1!n3 7357!n6,\n!5 w0rk!n6.\nØr !5 !7?".to_string(),
+            &"T#!5 mu17! 1!n3 7357!n6,\n!5 w0rk!n6.\nØr !5 !7?".to_string(),
             &"hard".to_string()
         )
         .unwrap(),
