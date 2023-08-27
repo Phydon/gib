@@ -4,7 +4,7 @@ use owo_colors::colored::*;
 
 use std::{
     fs,
-    io::{self, BufRead, BufReader, Write},
+    io::{self, BufRead, BufReader, Read, Write},
     path::{Path, PathBuf},
     process,
     time::Duration,
@@ -77,9 +77,12 @@ pub fn check_file_size(path: &PathBuf) {
     }
 }
 
+// TODO always read as bytes, not to string
+// -> handle argon hash with read.exact()???
 // TODO write extra functions for extracting first line and rest
 pub fn read_file_content(path: &PathBuf) -> io::Result<(String, String)> {
     let file = fs::File::open(path)?;
+    // WARNING standard capacity for bufreader = 8Kb
     let buf_reader = BufReader::new(file);
     let mut buffer_lines = buf_reader.lines().map(|line| line.unwrap());
 
@@ -115,9 +118,41 @@ pub fn read_file_content(path: &PathBuf) -> io::Result<(String, String)> {
     Ok((hash, content))
 }
 
+pub fn read_non_utf8_nonce_and_decrypted_text(path: &PathBuf) -> io::Result<(Vec<u8>, Vec<u8>)> {
+    let mut file = fs::File::open(path)?;
+
+    // read nonce from first 24 bytes (xnonce = 192 bits == 24 bytes)
+    let mut nonce = [0; 24];
+    let _ = file.read_exact(&mut nonce);
+
+    let mut buf = Vec::new();
+    let _ = file.read_to_end(&mut buf);
+
+    Ok((nonce.into(), buf))
+}
+
+pub fn write_non_utf8_content_and_nonce(
+    path: &PathBuf,
+    nonce: &[u8],
+    content: &Vec<u8>,
+) -> io::Result<()> {
+    let mut newfile = fs::OpenOptions::new()
+        .write(true)
+        .truncate(true)
+        .create(true)
+        .open(path)?;
+
+    newfile.write_all(&nonce)?;
+    newfile.write_all(&content)?;
+
+    Ok(())
+}
+
 pub fn read_non_utf8(path: &PathBuf) -> io::Result<Vec<u8>> {
     let file = fs::File::open(path)?;
 
+    // FIXME
+    // WARNING standard capacity for bufreader = 8Kb
     let mut buf_reader = BufReader::new(file);
     let mut buf = Vec::new();
 

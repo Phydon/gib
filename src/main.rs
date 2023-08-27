@@ -1,6 +1,7 @@
 mod argon;
 mod base64ct;
 mod caesar;
+mod chacha;
 mod hex;
 mod l33t;
 mod methods;
@@ -10,11 +11,10 @@ mod xor;
 use crate::argon::{calculate_hash, verify_hash};
 use crate::base64ct::{decode_base64ct, encode_base64ct};
 use crate::caesar::{decode_caesar, encode_caesar};
+use crate::chacha::*;
 use crate::hex::{decode_hex, encode_hex};
 use crate::methods::{list_methods, Method};
-use crate::utils::{
-    check_create_config_dir, make_file_copy, read_file_content, show_log_file, write_utf8_content,
-};
+use crate::utils::*;
 use crate::xor::encode_decode_xor;
 use clap::{Arg, ArgAction, Command};
 use flexi_logger::{detailed_format, Duplicate, FileSpec, Logger};
@@ -121,6 +121,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         // emtpy hash == no hash
         let mut hash = String::new();
 
+        // FIXME panics when non utf8 content in file
+        // TODO always read content as bytes
         if let Ok((h, c)) = read_file_content(&path) {
             // try read utf8
             content.push_str(&c);
@@ -138,10 +140,11 @@ fn main() -> Result<(), Box<dyn Error>> {
                 }
             }
         }
+
         // FIXME how to identify non-utf8 content??
-        // dbg!(&content);
-        // dbg!(&byte_content);
-        // dbg!(&hash);
+        // TODO argon hash fixed size?
+        // -> always read file content as bytes
+        // -> use read_exact() for argon hash
 
         // handle sign flag
         if sign_flag {
@@ -182,6 +185,18 @@ fn main() -> Result<(), Box<dyn Error>> {
                     let mut caesar_encoded_vec = encode_caesar(&content)?;
                     encoded_decoded_content.append(&mut caesar_encoded_vec);
                 }
+                Method::ChaCha20Poly1305 => {
+                    // TODO ask user for key
+                    // WARNING key must be 32 bytes long
+                    let key = "passwordpasswordpasswordpassword".to_string().into_bytes();
+
+                    // TODO handle unwrap()
+                    let (nonce, ciphertext) = encode_chacha(&key, &content).unwrap();
+                    // TODO concat nonce + ciphertext??
+
+                    write_non_utf8_content_and_nonce(&path, &nonce, &ciphertext)?;
+                    writing_done = true;
+                }
                 Method::Hex => {
                     let mut hex_encoded_vec = encode_hex(&content.clone().into_bytes())?;
                     encoded_decoded_content.append(&mut hex_encoded_vec);
@@ -220,6 +235,20 @@ fn main() -> Result<(), Box<dyn Error>> {
                 Method::Caesar => {
                     let mut caesar_decoded_vec = decode_caesar(&content)?;
                     encoded_decoded_content.append(&mut caesar_decoded_vec);
+                }
+                Method::ChaCha20Poly1305 => {
+                    // TODO ask user for key
+                    // WARNING key must be 32 bytes long
+                    let key = "passwordpasswordpasswordpassword".to_string().into_bytes();
+
+                    let (nonce, encrypted_text) = read_non_utf8_nonce_and_decrypted_text(&path)?;
+
+                    // TODO handle unwrap()
+                    let decrypted_text = decode_chacha(&key, &nonce, &encrypted_text).unwrap();
+
+                    let empty_nonce = Vec::new();
+                    write_non_utf8_content_and_nonce(&path, &empty_nonce, &decrypted_text)?;
+                    writing_done = true;
                 }
                 Method::Hex => {
                     let mut hex_decoded_vec = decode_hex(&content.clone().into_bytes())?;

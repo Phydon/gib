@@ -10,6 +10,7 @@ use strum_macros::EnumIter;
 pub enum Method {
     Base64ct,
     Caesar,
+    ChaCha20Poly1305,
     // ColumnarTransposition,
     // Feistel, // encrypt == decrypt (use as default?)
     Hex,
@@ -29,6 +30,9 @@ impl FromStr for Method {
         match s.to_ascii_lowercase().as_str() {
             "base64ct" | "base64" => Ok(Method::Base64ct),
             "caesar" => Ok(Method::Caesar),
+            "chacha20poly1305" | "chacha20" | "chacha" | "chachapoly" => {
+                Ok(Method::ChaCha20Poly1305)
+            }
             "hex" => Ok(Method::Hex),
             "l33t" | "1337" | "leet" => Ok(Method::L33t),
             "xor" => Ok(Method::XOR),
