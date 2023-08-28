@@ -240,7 +240,8 @@ fn main() -> Result<(), Box<dyn Error>> {
                     // WARNING key must be 32 bytes long
                     let key = "passwordpasswordpasswordpassword".to_string().into_bytes();
 
-                    let (nonce, encrypted_text) = read_non_utf8_nonce_and_decrypted_text(&path)?;
+                    let full_encrypted_text = read_non_utf8_nonce_and_decrypted_text(&path)?;
+                    let (nonce, encrypted_text) = extract_nonce(&full_encrypted_text)?;
 
                     // TODO handle unwrap()
                     let decrypted_text = decode_chacha(&key, &nonce, &encrypted_text).unwrap();

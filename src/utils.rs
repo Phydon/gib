@@ -118,17 +118,27 @@ pub fn read_file_content(path: &PathBuf) -> io::Result<(String, String)> {
     Ok((hash, content))
 }
 
-pub fn read_non_utf8_nonce_and_decrypted_text(path: &PathBuf) -> io::Result<(Vec<u8>, Vec<u8>)> {
+// TODO rename
+pub fn read_non_utf8_nonce_and_decrypted_text(path: &PathBuf) -> io::Result<Vec<u8>> {
     let mut file = fs::File::open(path)?;
 
     // read nonce from first 24 bytes (xnonce = 192 bits == 24 bytes)
-    let mut nonce = [0; 24];
-    let _ = file.read_exact(&mut nonce);
+    // let mut nonce = [0; 24];
+    // let _ = file.read_exact(&mut nonce);
 
     let mut buf = Vec::new();
     let _ = file.read_to_end(&mut buf);
 
-    Ok((nonce.into(), buf))
+    // Ok((nonce.into(), buf))
+    Ok(buf)
+}
+
+pub fn extract_nonce(filecontent: &Vec<u8>) -> io::Result<(Vec<u8>, Vec<u8>)> {
+    // TODO better way than cloning?
+    let mut nonce = filecontent.clone();
+    let rest: Vec<u8> = nonce.drain(24..).collect();
+
+    Ok((nonce.to_owned(), rest))
 }
 
 pub fn read_non_utf8(path: &PathBuf) -> io::Result<Vec<u8>> {
