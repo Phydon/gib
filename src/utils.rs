@@ -77,10 +77,11 @@ pub fn check_file_size(path: &PathBuf) {
     }
 }
 
+// TODO reomve this function
 // TODO always read as bytes, not to string
 // -> handle argon hash with read.exact()???
 // TODO write extra functions for extracting first line and rest
-pub fn read_file_content(path: &PathBuf) -> io::Result<(String, String)> {
+pub fn read_file_content_utf8(path: &PathBuf) -> io::Result<(String, String)> {
     let file = fs::File::open(path)?;
     // WARNING standard capacity for bufreader = 8Kb
     let buf_reader = BufReader::new(file);
@@ -118,48 +119,10 @@ pub fn read_file_content(path: &PathBuf) -> io::Result<(String, String)> {
     Ok((hash, content))
 }
 
-// TODO rename
-pub fn read_non_utf8_nonce_and_decrypted_text(path: &PathBuf) -> io::Result<Vec<u8>> {
+pub fn read_file_content(path: &PathBuf) -> io::Result<Vec<u8>> {
     let mut file = fs::File::open(path)?;
-
-    // read nonce from first 24 bytes (xnonce = 192 bits == 24 bytes)
-    // let mut nonce = [0; 24];
-    // let _ = file.read_exact(&mut nonce);
-
     let mut buf = Vec::new();
     let _ = file.read_to_end(&mut buf);
-
-    // Ok((nonce.into(), buf))
-    Ok(buf)
-}
-
-pub fn extract_nonce(filecontent: &Vec<u8>) -> io::Result<(Vec<u8>, Vec<u8>)> {
-    // TODO better way than cloning?
-    let mut nonce = filecontent.clone();
-    let rest: Vec<u8> = nonce.drain(24..).collect();
-
-    Ok((nonce.to_owned(), rest))
-}
-
-pub fn read_non_utf8(path: &PathBuf) -> io::Result<Vec<u8>> {
-    let file = fs::File::open(path)?;
-
-    // FIXME
-    // WARNING standard capacity for bufreader = 8Kb
-    let mut buf_reader = BufReader::new(file);
-    let mut buf = Vec::new();
-
-    let _ = buf_reader.read_until(0x00, &mut buf)?; // read whole file (without new lines)
-
-    // while let Ok(char) = buf_reader.read_until(0x0A as u8, &mut buf) {
-    //     buf.push(0x0D); // CR
-    //     buf.push(0x0A); // LF
-    //     if char.eq(&0x00) {
-    //         // NULL -> EOF
-    //         break;
-    //     }
-    //     continue;
-    // } // this reads line by line
 
     Ok(buf)
 }
@@ -176,6 +139,7 @@ pub fn write_non_utf8_content(path: &PathBuf, content: &Vec<u8>) -> io::Result<(
     Ok(())
 }
 
+// TODO remove -> concat hash with content and use function above
 pub fn write_utf8_content(path: &PathBuf, hash: String, content: &[u8]) -> io::Result<()> {
     let mut newfile = fs::OpenOptions::new()
         .write(true)

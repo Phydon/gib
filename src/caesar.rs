@@ -1,12 +1,13 @@
 use std::io;
 
 // based on https://github.com/TheAlgorithms/Rust
-pub fn encode_caesar(content: &String) -> io::Result<Vec<u8>> {
+pub fn encode_caesar(byte_content: &Vec<u8>) -> io::Result<Vec<u8>> {
     // TODO let user choose a key between 1 <= key <= 26
     // key = 13 == ROT13 (encrypting and decrypting is its own inverse)
     let key: u8 = 13;
     assert!(key <= 26 && key >= 1);
 
+    let content = String::from_utf8(byte_content.to_owned()).unwrap();
     let encoded: String = content
         .chars()
         .map(|char| {
@@ -27,12 +28,13 @@ pub fn encode_caesar(content: &String) -> io::Result<Vec<u8>> {
 }
 
 // based on https://github.com/TheAlgorithms/Rust
-pub fn decode_caesar(content: &String) -> io::Result<Vec<u8>> {
+pub fn decode_caesar(byte_content: &Vec<u8>) -> io::Result<Vec<u8>> {
     // TODO get key from user
     // key = 13 == ROT13 (encrypting and decrypting is its own inverse)
     let key: u8 = 13;
     assert!(key <= 26 && key >= 1);
 
+    let content = String::from_utf8(byte_content.to_owned()).unwrap();
     let decoded: String = content
         .chars()
         .map(|char| {
@@ -55,7 +57,7 @@ pub fn decode_caesar(content: &String) -> io::Result<Vec<u8>> {
 #[test]
 fn encode_caesar_test() {
     assert_eq!(
-        encode_caesar(&"This is a test".to_string()).unwrap(),
+        encode_caesar(&"This is a test".to_string().into_bytes()).unwrap(),
         "Guvf vf n grfg".as_bytes()
     );
 }
@@ -63,7 +65,7 @@ fn encode_caesar_test() {
 #[test]
 fn decode_caesar_test() {
     assert_eq!(
-        decode_caesar(&"Guvf vf n grfg".to_string()).unwrap(),
+        decode_caesar(&"Guvf vf n grfg".to_string().into_bytes()).unwrap(),
         "This is a test".as_bytes()
     );
 }
@@ -71,7 +73,12 @@ fn decode_caesar_test() {
 #[test]
 fn encode_caesar_special_chars_test() {
     assert_eq!(
-        encode_caesar(&"Random chars: !\"§$%&/()=?`+#*'-_~@".to_string()).unwrap(),
+        encode_caesar(
+            &"Random chars: !\"§$%&/()=?`+#*'-_~@"
+                .to_string()
+                .into_bytes()
+        )
+        .unwrap(),
         "Enaqbz punef: !\"§$%&/()=?`+#*'-_~@".as_bytes()
     );
 }
@@ -79,7 +86,12 @@ fn encode_caesar_special_chars_test() {
 #[test]
 fn decode_caesar_special_chars_test() {
     assert_eq!(
-        decode_caesar(&"Enaqbz punef: !\"§$%&/()=?`+#*'-_~@".to_string()).unwrap(),
+        decode_caesar(
+            &"Enaqbz punef: !\"§$%&/()=?`+#*'-_~@"
+                .to_string()
+                .into_bytes()
+        )
+        .unwrap(),
         "Random chars: !\"§$%&/()=?`+#*'-_~@".as_bytes()
     );
 }
@@ -87,8 +99,12 @@ fn decode_caesar_special_chars_test() {
 #[test]
 fn encode_caesar_multi_lines_test() {
     assert_eq!(
-        encode_caesar(&"This is a test.\nWith multiple lines in it.\nYour welcome.".to_string())
-            .unwrap(),
+        encode_caesar(
+            &"This is a test.\nWith multiple lines in it.\nYour welcome."
+                .to_string()
+                .into_bytes()
+        )
+        .unwrap(),
         "Guvf vf n grfg.\nJvgu zhygvcyr yvarf va vg.\nLbhe jrypbzr.".as_bytes()
     );
 }
@@ -96,7 +112,12 @@ fn encode_caesar_multi_lines_test() {
 #[test]
 fn decode_caesar_multi_lines_test() {
     assert_eq!(
-        decode_caesar(&"Guvf zhygv yvar grfgvat,\nvf jbexvat.\nBe vf vg?".to_string()).unwrap(),
+        decode_caesar(
+            &"Guvf zhygv yvar grfgvat,\nvf jbexvat.\nBe vf vg?"
+                .to_string()
+                .into_bytes()
+        )
+        .unwrap(),
         "This multi line testing,\nis working.\nOr is it?".as_bytes()
     );
 }

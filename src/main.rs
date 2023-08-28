@@ -8,21 +8,21 @@ mod methods;
 mod utils;
 mod xor;
 
-use crate::argon::{calculate_hash, verify_hash};
-use crate::base64ct::{decode_base64ct, encode_base64ct};
-use crate::caesar::{decode_caesar, encode_caesar};
+use crate::argon::*;
+use crate::base64ct::*;
+use crate::caesar::*;
 use crate::chacha::*;
-use crate::hex::{decode_hex, encode_hex};
-use crate::methods::{list_methods, Method};
+use crate::hex::*;
+use crate::methods::*;
 use crate::utils::*;
-use crate::xor::encode_decode_xor;
+use crate::xor::*;
+
 use clap::{Arg, ArgAction, Command};
 use flexi_logger::{detailed_format, Duplicate, FileSpec, Logger};
 use indicatif::{ProgressBar, ProgressStyle};
 use l33t::encode_decode_l33t;
 use log::{error, info, warn};
 use owo_colors::colored::*;
-use utils::{check_file_size, prompt_user_for_input, read_non_utf8, write_non_utf8_content};
 
 // use std::io;
 // use std::path::PathBuf;
@@ -113,63 +113,51 @@ fn main() -> Result<(), Box<dyn Error>> {
         // set writing_done variable to true
         let mut writing_done = false;
 
-        // try read file content
-        let mut content = String::new();
-        // for handling non utf8 content
-        let mut byte_content = Vec::new();
+        // read file content as bytes
+        let byte_content: Vec<u8> = read_file_content(&path)?;
 
-        // emtpy hash == no hash
+        // for storing hash
         let mut hash = String::new();
+        // for storing rest of the content if there is a hash
+        let mut rest = Vec::new();
 
-        // FIXME panics when non utf8 content in file
-        // TODO always read content as bytes
-        if let Ok((h, c)) = read_file_content(&path) {
-            // try read utf8
-            content.push_str(&c);
-            hash.push_str(&h);
-        } else {
-            pb.suspend(|| println!("{}", "Found non-UTF8 file.".on_red()));
-            match read_non_utf8(&path) {
-                // try read bytes
-                Ok(mut b) => {
-                    byte_content.append(b.as_mut());
-                }
-                Err(err) => {
-                    error!("Unable to read file: {}", err);
-                    process::exit(1);
-                }
-            }
-        }
-
-        // FIXME how to identify non-utf8 content??
-        // TODO argon hash fixed size?
-        // -> always read file content as bytes
-        // -> use read_exact() for argon hash
+        // for storing encoded / decoded content
+        let mut encoded_decoded_content = Vec::new();
 
         // handle sign flag
         if sign_flag {
+            // extract hash from content
+            let (hash_bytes, rest_bytes) = extract_hash(&byte_content);
+            // TODO is there a better way than cloning??
+            let mut tmp_vec = Vec::from(rest_bytes.clone());
+            rest.append(&mut tmp_vec);
+
+            // if argon configs change, this changes as well
+            if hash_bytes.starts_with("$argon2id$v=19$m=2097152,t=1,p=1".as_bytes()) {
+                let h = String::from_utf8(hash_bytes).unwrap();
+                hash.push_str(&h);
+            }
+
             if hash.is_empty() {
                 // calculate hash from file content
-                let hash_string = calculate_hash(pb.clone(), &content);
+                let hash_string = calculate_hash(pb.clone(), &rest_bytes);
                 hash.push_str(&hash_string);
             } else {
-                let verification = verify_hash(pb.clone(), &hash, &content);
+                let verification = verify_hash(pb.clone(), &hash, &rest_bytes);
                 if !verification {
                     warn!("Couldn`t verify file");
                     process::exit(0);
                 }
 
-                // // if verification is ok -> empty hash?
-                // hash.clear();
                 pb.suspend(|| {
                     println!("{}", "Verification successful".green());
-                })
-            }
-        }
+                });
 
-        // start encoding / decoding
-        let mut encoded_decoded_content = Vec::new();
-        if let Some(method) = matches.get_one::<String>("encode") {
+                // no file changes needed
+                writing_done = true;
+            }
+        } else if let Some(method) = matches.get_one::<String>("encode") {
+            // start encoding
             let encoding_spinner_style = ProgressStyle::with_template("{spinner:.red} {msg}")
                 .unwrap()
                 .tick_strings(SPINNER_ARC);
@@ -178,11 +166,11 @@ fn main() -> Result<(), Box<dyn Error>> {
 
             match method.parse::<Method>().unwrap() {
                 Method::Base64ct => {
-                    let mut base64ct_encoded_vec = encode_base64ct(&content)?;
+                    let mut base64ct_encoded_vec = encode_base64ct(&byte_content)?;
                     encoded_decoded_content.append(&mut base64ct_encoded_vec);
                 }
                 Method::Caesar => {
-                    let mut caesar_encoded_vec = encode_caesar(&content)?;
+                    let mut caesar_encoded_vec = encode_caesar(&byte_content)?;
                     encoded_decoded_content.append(&mut caesar_encoded_vec);
                 }
                 Method::ChaCha20Poly1305 => {
@@ -191,19 +179,20 @@ fn main() -> Result<(), Box<dyn Error>> {
                     let key = "passwordpasswordpasswordpassword".to_string().into_bytes();
 
                     // TODO handle unwrap()
-                    let ciphertext = encode_chacha(&key, &content).unwrap();
+                    let ciphertext = encode_chacha(&key, &byte_content).unwrap();
 
+                    // TODO remove later
                     write_non_utf8_content(&path, &ciphertext)?;
                     writing_done = true;
                 }
                 Method::Hex => {
-                    let mut hex_encoded_vec = encode_hex(&content.clone().into_bytes())?;
+                    let mut hex_encoded_vec = encode_hex(&byte_content)?;
                     encoded_decoded_content.append(&mut hex_encoded_vec);
                 }
                 Method::L33t => {
                     // there should always be at least the default mode
                     if let Some(mode) = matches.get_one::<String>("l33t") {
-                        let mut l33t_encoded_vec = encode_decode_l33t(&content, mode)?;
+                        let mut l33t_encoded_vec = encode_decode_l33t(&byte_content, mode)?;
                         encoded_decoded_content.append(&mut l33t_encoded_vec);
                     }
                 }
@@ -214,12 +203,12 @@ fn main() -> Result<(), Box<dyn Error>> {
                         key.push_str(&input);
                     }
 
-                    let mut xor_encoded_vec =
-                        encode_decode_xor(&content.clone().into_bytes(), key)?;
+                    let mut xor_encoded_vec = encode_decode_xor(&byte_content, key)?;
                     encoded_decoded_content.append(&mut xor_encoded_vec);
                 }
             }
         } else if let Some(method) = matches.get_one::<String>("decode") {
+            // start decoding
             let decoding_spinner_style = ProgressStyle::with_template("{spinner:.red} {msg}")
                 .unwrap()
                 .tick_strings(SPINNER_ARC);
@@ -228,11 +217,11 @@ fn main() -> Result<(), Box<dyn Error>> {
 
             match method.parse::<Method>().unwrap() {
                 Method::Base64ct => {
-                    let mut base64ct_decoded_vec = decode_base64ct(&content)?;
+                    let mut base64ct_decoded_vec = decode_base64ct(&byte_content)?;
                     encoded_decoded_content.append(&mut base64ct_decoded_vec);
                 }
                 Method::Caesar => {
-                    let mut caesar_decoded_vec = decode_caesar(&content)?;
+                    let mut caesar_decoded_vec = decode_caesar(&byte_content)?;
                     encoded_decoded_content.append(&mut caesar_decoded_vec);
                 }
                 Method::ChaCha20Poly1305 => {
@@ -240,23 +229,23 @@ fn main() -> Result<(), Box<dyn Error>> {
                     // WARNING key must be 32 bytes long
                     let key = "passwordpasswordpasswordpassword".to_string().into_bytes();
 
-                    let full_encrypted_text = read_non_utf8_nonce_and_decrypted_text(&path)?;
-                    let (nonce, encrypted_text) = extract_nonce(&full_encrypted_text)?;
+                    let (nonce, encrypted_text) = extract_nonce(&byte_content);
 
                     // TODO handle unwrap()
                     let decrypted_text = decode_chacha(&key, &nonce, &encrypted_text).unwrap();
 
+                    // TODO remove later
                     write_non_utf8_content(&path, &decrypted_text)?;
                     writing_done = true;
                 }
                 Method::Hex => {
-                    let mut hex_decoded_vec = decode_hex(&content.clone().into_bytes())?;
+                    let mut hex_decoded_vec = decode_hex(&byte_content)?;
                     encoded_decoded_content.append(&mut hex_decoded_vec);
                 }
                 Method::L33t => {
                     // there should always be at least the default mode
                     if let Some(mode) = matches.get_one::<String>("l33t") {
-                        let mut l33t_decoded_vec = encode_decode_l33t(&content, mode)?;
+                        let mut l33t_decoded_vec = encode_decode_l33t(&byte_content, mode)?;
                         encoded_decoded_content.append(&mut l33t_decoded_vec);
                     }
                 }
@@ -267,18 +256,6 @@ fn main() -> Result<(), Box<dyn Error>> {
                         key.push_str(&input);
                     }
 
-                    // read file as non utf8,
-                    match read_non_utf8(&path) {
-                        // try read bytes
-                        Ok(mut b) => {
-                            byte_content.append(b.as_mut());
-                        }
-                        Err(err) => {
-                            error!("Unable to read file: {}", err);
-                            process::exit(1);
-                        }
-                    }
-
                     let mut xor_decoded_vec = encode_decode_xor(&byte_content, key)?;
                     encoded_decoded_content.append(&mut xor_decoded_vec);
                 }
@@ -287,14 +264,14 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         // write encoded/encrypted // decoded/decrpyted content back to file
         if !writing_done {
-            if byte_content.is_empty() {
-                // write utf8 data
-                if encoded_decoded_content.is_empty() {
-                    write_utf8_content(&path, hash, &content.as_bytes())?;
-                } else {
-                    write_utf8_content(&path, hash, &encoded_decoded_content)?;
-                }
+            if !hash.is_empty() {
+                // concat hash and rest of the byte_content
+                let mut concated_hash_and_rest_bytes = hash.into_bytes();
+                concated_hash_and_rest_bytes.append(&mut rest);
+
+                write_non_utf8_content(&path, &concated_hash_and_rest_bytes)?;
             } else {
+                // if no sign flag was set
                 write_non_utf8_content(&path, &encoded_decoded_content)?;
             }
         }
@@ -424,7 +401,7 @@ fn gib() -> Command {
                 .long("sign")
                 .help("Verify a file with a signature")
                 .action(ArgAction::SetTrue)
-                .conflicts_with("list"),
+                .conflicts_with_all(["decode", "encode", "list"]),
         )
         .subcommand(
             Command::new("log")
