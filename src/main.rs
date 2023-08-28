@@ -24,8 +24,8 @@ use log::{error, info, warn};
 use owo_colors::colored::*;
 use utils::{check_file_size, prompt_user_for_input, read_non_utf8, write_non_utf8_content};
 
-use std::io;
-use std::path::PathBuf;
+// use std::io;
+// use std::path::PathBuf;
 use std::{error::Error, path::Path, process, time::Duration};
 
 pub const SPINNER_ARC: &[&str; 6] = &["◜", "◠", "◝", "◞", "◡", "◟"];
@@ -191,10 +191,9 @@ fn main() -> Result<(), Box<dyn Error>> {
                     let key = "passwordpasswordpasswordpassword".to_string().into_bytes();
 
                     // TODO handle unwrap()
-                    let (nonce, ciphertext) = encode_chacha(&key, &content).unwrap();
-                    // TODO concat nonce + ciphertext??
+                    let ciphertext = encode_chacha(&key, &content).unwrap();
 
-                    write_non_utf8_content_and_nonce(&path, &nonce, &ciphertext)?;
+                    write_non_utf8_content(&path, &ciphertext)?;
                     writing_done = true;
                 }
                 Method::Hex => {
@@ -246,8 +245,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                     // TODO handle unwrap()
                     let decrypted_text = decode_chacha(&key, &nonce, &encrypted_text).unwrap();
 
-                    let empty_nonce = Vec::new();
-                    write_non_utf8_content_and_nonce(&path, &empty_nonce, &decrypted_text)?;
+                    write_non_utf8_content(&path, &decrypted_text)?;
                     writing_done = true;
                 }
                 Method::Hex => {
@@ -346,7 +344,7 @@ fn gib() -> Command {
             "Quickly en-/decode // en-/decrypt files 'on the fly'",
         ))
         // TODO update version
-        .version("1.5.2")
+        .version("1.6.0")
         .author("Leann Phydon <leann.phydon@gmail.com>")
         .arg_required_else_help(true)
         .arg(

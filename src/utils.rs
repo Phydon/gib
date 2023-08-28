@@ -131,23 +131,6 @@ pub fn read_non_utf8_nonce_and_decrypted_text(path: &PathBuf) -> io::Result<(Vec
     Ok((nonce.into(), buf))
 }
 
-pub fn write_non_utf8_content_and_nonce(
-    path: &PathBuf,
-    nonce: &[u8],
-    content: &Vec<u8>,
-) -> io::Result<()> {
-    let mut newfile = fs::OpenOptions::new()
-        .write(true)
-        .truncate(true)
-        .create(true)
-        .open(path)?;
-
-    newfile.write_all(&nonce)?;
-    newfile.write_all(&content)?;
-
-    Ok(())
-}
-
 pub fn read_non_utf8(path: &PathBuf) -> io::Result<Vec<u8>> {
     let file = fs::File::open(path)?;
 
