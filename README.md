@@ -11,6 +11,7 @@ turning text into **gibberish**
 
 * base64 (constant time)
 * caesar cipher
+* chacha20poly1305
 * hex
 * l33t
 * xor
@@ -36,12 +37,14 @@ Options:
           Decode/Decrypt the file
   -e, --encode <ENCODING/ENCRYPTING METHOD>
           Encode/Encrypt the file
+  -k, --key
+          Use a specific key for encoding
   -3, --l33t <Mode>
           Set l33t mode [default: soft] [possible values: soft, hard]
   -l, --list
           List all available en-/decoding // en-/decrypting methods
-  -p, --password
-          Secure a file with a password
+  -s, --sign
+          Verify a file with a signature
   -h, --help
           Print help (see more with '--help')
   -V, --version
@@ -71,6 +74,13 @@ Options:
   -e, --encode <ENCODING/ENCRYPTING METHOD>
           Encode/Encrypt the file
 
+  -k, --key
+          Use a specific key for encoding
+          If the encoding method allows a custom key, you will get prompted to enter a key
+          To decode this file again correctly, the same key must be used
+          This flag gets ignored if the encoding method doesn`t allow a specific key
+          This is NOT a password
+
   -3, --l33t <Mode>
           Set l33t mode
 
@@ -80,8 +90,8 @@ Options:
   -l, --list
           List all available en-/decoding // en-/decrypting methods
 
-  -p, --password
-          Secure a file with a password
+  -s, --sign
+          Verify a file with a signature
 
   -h, --help
           Print help (see a summary with '-h')
