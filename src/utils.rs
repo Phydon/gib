@@ -4,7 +4,7 @@ use owo_colors::colored::*;
 
 use std::{
     fs,
-    io::{self, BufRead, BufReader, Read, Write},
+    io::{self, Read, Write},
     path::{Path, PathBuf},
     process,
     time::Duration,
@@ -77,48 +77,6 @@ pub fn check_file_size(path: &PathBuf) {
     }
 }
 
-// TODO reomve this function
-// TODO always read as bytes, not to string
-// -> handle argon hash with read.exact()???
-// TODO write extra functions for extracting first line and rest
-pub fn read_file_content_utf8(path: &PathBuf) -> io::Result<(String, String)> {
-    let file = fs::File::open(path)?;
-    // WARNING standard capacity for bufreader = 8Kb
-    let buf_reader = BufReader::new(file);
-    let mut buffer_lines = buf_reader.lines().map(|line| line.unwrap());
-
-    let first_line: String = buffer_lines
-        .next()
-        .expect("The file shouldn`t be empty")
-        .parse()
-        .unwrap();
-
-    let mut rest = String::new();
-    buffer_lines.into_iter().for_each(|line| {
-        rest.push_str(&line);
-        rest.push_str("\n");
-    });
-
-    //remove '\n' from last line
-    rest.pop();
-
-    let mut hash = String::new();
-    let mut content = String::new();
-    if first_line.contains("$argon2id$v=19$m=2097152,t=1,p=1") {
-        hash.push_str(&first_line);
-        content.push_str(&rest);
-    } else {
-        content.push_str(&first_line);
-
-        if !rest.is_empty() {
-            content.push_str("\n");
-            content.push_str(&rest);
-        }
-    }
-
-    Ok((hash, content))
-}
-
 pub fn read_file_content(path: &PathBuf) -> io::Result<Vec<u8>> {
     let mut file = fs::File::open(path)?;
     let mut buf = Vec::new();
@@ -133,24 +91,6 @@ pub fn write_non_utf8_content(path: &PathBuf, content: &Vec<u8>) -> io::Result<(
         .truncate(true)
         .create(true)
         .open(path)?;
-
-    newfile.write_all(&content)?;
-
-    Ok(())
-}
-
-// TODO remove -> concat hash with content and use function above
-pub fn write_utf8_content(path: &PathBuf, hash: String, content: &[u8]) -> io::Result<()> {
-    let mut newfile = fs::OpenOptions::new()
-        .write(true)
-        .truncate(true)
-        .create(true)
-        .open(path)?;
-
-    if !hash.is_empty() {
-        newfile.write_all(hash.as_bytes())?;
-        newfile.write_all("\n".as_bytes())?;
-    }
 
     newfile.write_all(&content)?;
 

@@ -24,8 +24,6 @@ use l33t::encode_decode_l33t;
 use log::{error, info, warn};
 use owo_colors::colored::*;
 
-// use std::io;
-// use std::path::PathBuf;
 use std::{error::Error, path::Path, process, time::Duration};
 
 pub const SPINNER_ARC: &[&str; 6] = &["◜", "◠", "◝", "◞", "◡", "◟"];
@@ -322,7 +320,7 @@ fn gib() -> Command {
             "Quickly en-/decode // en-/decrypt files 'on the fly'",
         ))
         // TODO update version
-        .version("1.6.0")
+        .version("1.7.0")
         .author("Leann Phydon <leann.phydon@gmail.com>")
         .arg_required_else_help(true)
         .arg(
