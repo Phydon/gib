@@ -123,6 +123,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         // for storing encoded / decoded content
         let mut encoded_decoded_content = Vec::new();
 
+        // FIXME overrides (sometimes) first lines of the file
         // handle sign flag
         if sign_flag {
             // extract hash from content
