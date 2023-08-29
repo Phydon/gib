@@ -1,5 +1,3 @@
-use std::io::{self, ErrorKind};
-
 use argon2::{self, Config};
 use indicatif::{ProgressBar, ProgressStyle};
 use owo_colors::colored::*;
@@ -21,24 +19,20 @@ pub fn calculate_hash(pb: ProgressBar, text: &Vec<u8>) -> String {
     hash
 }
 
-pub fn verify_hash(pb: ProgressBar, hash: &String, text: &Vec<u8>) -> bool {
+pub fn verify_hash(pb: ProgressBar, hash: &Vec<u8>, text: &Vec<u8>) -> bool {
     let verify_hash_spin_style = ProgressStyle::with_template("{msg} {spinner:.white}").unwrap();
     pb.set_style(verify_hash_spin_style.tick_strings(SPINNER_BINARY));
     pb.set_message(format!("{}", "verifying hash".truecolor(250, 0, 104)));
 
-    let matches = argon2::verify_encoded(&hash, text).expect("Unable to verify hash");
+    // TODO handle unwrap()
+    let hash_string = String::from_utf8(hash.to_owned()).unwrap();
+    let matches = argon2::verify_encoded(&hash_string, text).expect("Unable to verify hash");
 
     matches
 }
 
-pub fn extract_hash(filecontent: &Vec<u8>) -> io::Result<(Vec<u8>, Vec<u8>)> {
+pub fn extract_hash(filecontent: &Vec<u8>) -> (Vec<u8>, Vec<u8>) {
     let argon2_hash_length = 96;
-
-    // check if length filecontent >= length argon2 hash
-    if filecontent.len() < argon2_hash_length {
-        return Err(io::Error::from(ErrorKind::InvalidInput));
-    }
-
     assert!(filecontent.len() >= argon2_hash_length);
 
     // TODO better way than cloning?
@@ -49,5 +43,5 @@ pub fn extract_hash(filecontent: &Vec<u8>) -> io::Result<(Vec<u8>, Vec<u8>)> {
     // => written when adding hash to file
     rest.remove(0);
 
-    Ok((hash.to_owned(), rest))
+    (hash.to_owned(), rest)
 }

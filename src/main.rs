@@ -113,57 +113,32 @@ fn main() -> Result<(), Box<dyn Error>> {
         let mut writing_done = false;
 
         // read file content as bytes
-        let byte_content: Vec<u8> = read_file_content(&path)?;
-
-        // for storing hash
-        let mut hash = String::new();
-        // for storing rest of the content if there is a hash
-        let mut rest = Vec::new();
+        let mut byte_content: Vec<u8> = read_file_content(&path)?;
 
         // for storing encoded / decoded content
         let mut encoded_decoded_content = Vec::new();
 
-        // FIXME overrides (sometimes) first lines of the file
+        // for storing hash
+        let mut hash = Vec::new();
         // handle sign flag
         if sign_flag {
-            // extract hash from content
-            let mut hash_bytes = Vec::new();
-            let mut rest_bytes = Vec::new();
-            match extract_hash(&byte_content) {
-                Ok((mut h, mut r)) => {
-                    hash_bytes.append(&mut h);
-                    rest_bytes.append(&mut r);
-                }
-                Err(err) => match err.kind() {
-                    // no hash in file
-                    std::io::ErrorKind::InvalidInput => {
-                        // TODO is there a better way than cloning??
-                        let mut tmp_bytes = byte_content.clone();
-                        rest_bytes.append(&mut tmp_bytes)
-                    }
-                    _ => {
-                        error!("Unable to extract hash");
-                        process::exit(1);
-                    }
-                },
-            }
-
-            rest.append(&mut rest_bytes);
+            // for storing rest of the content if there is a hash
+            let mut rest = Vec::new();
 
             // check if filecontent already contains a hash
-            if !hash_bytes.is_empty() {
-                // if argon configs change, this changes as well
-                if hash_bytes.starts_with("$argon2id$v=19$m=2097152,t=1,p=1".as_bytes()) {
-                    let h = String::from_utf8(hash_bytes).unwrap();
-                    hash.push_str(&h);
-                }
+            if byte_content.starts_with("$argon2id$v=19$m=2097152,t=1,p=1".as_bytes()) {
+                // extract hash from content
+                let (mut h, mut r) = extract_hash(&byte_content);
+                hash.append(&mut h);
+                rest.append(&mut r);
             }
 
             if hash.is_empty() {
                 // calculate hash from file content
-                let hash_string = calculate_hash(pb.clone(), &rest);
-                hash.push_str(&hash_string);
-                hash.push_str("\n");
+                let hash_string = calculate_hash(pb.clone(), &byte_content);
+                let mut tmp_hash = hash_string.into_bytes();
+                tmp_hash.push('\n' as u8);
+                hash.append(&mut tmp_hash);
             } else {
                 // verify found hash in filecontent
                 let verification = verify_hash(pb.clone(), &hash, &rest);
@@ -284,8 +259,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         if !writing_done {
             if !hash.is_empty() {
                 // concat hash and rest of the byte_content
-                let mut concated_hash_and_rest_bytes = hash.into_bytes();
-                concated_hash_and_rest_bytes.append(&mut rest);
+                let mut concated_hash_and_rest_bytes = hash;
+                concated_hash_and_rest_bytes.append(&mut byte_content);
 
                 write_non_utf8_content(&path, &concated_hash_and_rest_bytes)?;
             } else {
