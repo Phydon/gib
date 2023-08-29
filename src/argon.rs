@@ -1,3 +1,5 @@
+use std::io::{self, ErrorKind};
+
 use argon2::{self, Config};
 use indicatif::{ProgressBar, ProgressStyle};
 use owo_colors::colored::*;
@@ -8,9 +10,9 @@ const SPINNER_BINARY: &[&str; 10] = &[
 ];
 
 pub fn calculate_hash(pb: ProgressBar, text: &Vec<u8>) -> String {
-    let calc_hash_spin_style = ProgressStyle::with_template("{spinner:.white} {msg}").unwrap();
+    let calc_hash_spin_style = ProgressStyle::with_template("{msg} {spinner:.white}").unwrap();
     pb.set_style(calc_hash_spin_style.tick_strings(SPINNER_BINARY));
-    pb.set_message(format!("{}", "calculating hash ...".truecolor(250, 0, 104)));
+    pb.set_message(format!("{}", "calculating hash".truecolor(250, 0, 104)));
 
     let salt = b"gibberish_salt";
     let config = Config::rfc9106();
@@ -20,20 +22,32 @@ pub fn calculate_hash(pb: ProgressBar, text: &Vec<u8>) -> String {
 }
 
 pub fn verify_hash(pb: ProgressBar, hash: &String, text: &Vec<u8>) -> bool {
-    let verify_hash_spin_style = ProgressStyle::with_template("{spinner:.white} {msg}").unwrap();
+    let verify_hash_spin_style = ProgressStyle::with_template("{msg} {spinner:.white}").unwrap();
     pb.set_style(verify_hash_spin_style.tick_strings(SPINNER_BINARY));
-    pb.set_message(format!("{}", "verifying hash ...".truecolor(250, 0, 104)));
+    pb.set_message(format!("{}", "verifying hash".truecolor(250, 0, 104)));
 
     let matches = argon2::verify_encoded(&hash, text).expect("Unable to verify hash");
 
     matches
 }
 
-pub fn extract_hash(filecontent: &Vec<u8>) -> (Vec<u8>, Vec<u8>) {
+pub fn extract_hash(filecontent: &Vec<u8>) -> io::Result<(Vec<u8>, Vec<u8>)> {
+    let argon2_hash_length = 96;
+
+    // check if length filecontent >= length argon2 hash
+    if filecontent.len() < argon2_hash_length {
+        return Err(io::Error::from(ErrorKind::InvalidInput));
+    }
+
+    assert!(filecontent.len() >= argon2_hash_length);
+
     // TODO better way than cloning?
     let mut hash = filecontent.clone();
-    // TODO check if correct hash length
-    let rest: Vec<u8> = hash.drain(96..).collect();
+    let mut rest: Vec<u8> = hash.drain(argon2_hash_length..).collect();
 
-    (hash.to_owned(), rest)
+    // remove the 97th byte (== '\n')
+    // => written when adding hash to file
+    rest.remove(0);
+
+    Ok((hash.to_owned(), rest))
 }

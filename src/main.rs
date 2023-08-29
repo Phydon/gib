@@ -94,6 +94,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         pb.set_style(spinner_style);
 
         // handle copy flag
+        // TODO make default??
         if copy_flag {
             pb.set_message(format!("{}", "making backup...".truecolor(250, 0, 104)));
             // TODO check if copying works correctly
@@ -125,23 +126,46 @@ fn main() -> Result<(), Box<dyn Error>> {
         // handle sign flag
         if sign_flag {
             // extract hash from content
-            let (hash_bytes, rest_bytes) = extract_hash(&byte_content);
-            // TODO is there a better way than cloning??
-            let mut tmp_vec = Vec::from(rest_bytes.clone());
-            rest.append(&mut tmp_vec);
+            let mut hash_bytes = Vec::new();
+            let mut rest_bytes = Vec::new();
+            match extract_hash(&byte_content) {
+                Ok((mut h, mut r)) => {
+                    hash_bytes.append(&mut h);
+                    rest_bytes.append(&mut r);
+                }
+                Err(err) => match err.kind() {
+                    // no hash in file
+                    std::io::ErrorKind::InvalidInput => {
+                        // TODO is there a better way than cloning??
+                        let mut tmp_bytes = byte_content.clone();
+                        rest_bytes.append(&mut tmp_bytes)
+                    }
+                    _ => {
+                        error!("Unable to extract hash");
+                        process::exit(1);
+                    }
+                },
+            }
 
-            // if argon configs change, this changes as well
-            if hash_bytes.starts_with("$argon2id$v=19$m=2097152,t=1,p=1".as_bytes()) {
-                let h = String::from_utf8(hash_bytes).unwrap();
-                hash.push_str(&h);
+            rest.append(&mut rest_bytes);
+
+            // check if filecontent already contains a hash
+            if !hash_bytes.is_empty() {
+                // if argon configs change, this changes as well
+                if hash_bytes.starts_with("$argon2id$v=19$m=2097152,t=1,p=1".as_bytes()) {
+                    let h = String::from_utf8(hash_bytes).unwrap();
+                    hash.push_str(&h);
+                }
             }
 
             if hash.is_empty() {
                 // calculate hash from file content
-                let hash_string = calculate_hash(pb.clone(), &rest_bytes);
+                let hash_string = calculate_hash(pb.clone(), &rest);
                 hash.push_str(&hash_string);
+                hash.push_str("\n");
             } else {
-                let verification = verify_hash(pb.clone(), &hash, &rest_bytes);
+                // verify found hash in filecontent
+                let verification = verify_hash(pb.clone(), &hash, &rest);
                 if !verification {
                     warn!("Couldn`t verify file");
                     process::exit(0);
@@ -177,11 +201,8 @@ fn main() -> Result<(), Box<dyn Error>> {
                     let key = "passwordpasswordpasswordpassword".to_string().into_bytes();
 
                     // TODO handle unwrap()
-                    let ciphertext = encode_chacha(&key, &byte_content).unwrap();
-
-                    // TODO remove later
-                    write_non_utf8_content(&path, &ciphertext)?;
-                    writing_done = true;
+                    let mut chacha_encoded_vec = encode_chacha(&key, &byte_content).unwrap();
+                    encoded_decoded_content.append(&mut chacha_encoded_vec);
                 }
                 Method::Hex => {
                     let mut hex_encoded_vec = encode_hex(&byte_content)?;
@@ -230,11 +251,9 @@ fn main() -> Result<(), Box<dyn Error>> {
                     let (nonce, encrypted_text) = extract_nonce(&byte_content);
 
                     // TODO handle unwrap()
-                    let decrypted_text = decode_chacha(&key, &nonce, &encrypted_text).unwrap();
-
-                    // TODO remove later
-                    write_non_utf8_content(&path, &decrypted_text)?;
-                    writing_done = true;
+                    let mut chacha_decoded_vec =
+                        decode_chacha(&key, &nonce, &encrypted_text).unwrap();
+                    encoded_decoded_content.append(&mut chacha_decoded_vec);
                 }
                 Method::Hex => {
                     let mut hex_decoded_vec = decode_hex(&byte_content)?;
