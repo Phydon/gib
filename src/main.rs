@@ -126,7 +126,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             let mut rest = Vec::new();
 
             // check if filecontent already contains a hash
-            if byte_content.starts_with("$argon2id$v=19$m=2097152,t=1,p=1".as_bytes()) {
+            if byte_content.starts_with("$argon2id$v=19$m=65536,t=3,p=1".as_bytes()) {
                 // extract hash from content
                 let (mut h, mut r) = extract_hash(&byte_content);
                 hash.append(&mut h);

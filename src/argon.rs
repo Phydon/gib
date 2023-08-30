@@ -13,7 +13,8 @@ pub fn calculate_hash(pb: ProgressBar, text: &Vec<u8>) -> String {
     pb.set_message(format!("{}", "calculating hash".truecolor(250, 0, 104)));
 
     let salt = b"gibberish_salt";
-    let config = Config::rfc9106();
+    // INFO use low memory config for performance boost
+    let config = Config::rfc9106_low_mem();
     let hash = argon2::hash_encoded(text, salt, &config).expect("Unable to hash input");
 
     hash
@@ -32,7 +33,8 @@ pub fn verify_hash(pb: ProgressBar, hash: &Vec<u8>, text: &Vec<u8>) -> bool {
 }
 
 pub fn extract_hash(filecontent: &Vec<u8>) -> (Vec<u8>, Vec<u8>) {
-    let argon2_hash_length = 96;
+    // INFO if the hash config changes, this changes as well (most likely)
+    let argon2_hash_length = 94;
     assert!(filecontent.len() >= argon2_hash_length);
 
     // TODO better way than cloning?
