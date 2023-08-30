@@ -94,18 +94,17 @@ fn main() -> Result<(), Box<dyn Error>> {
         pb.set_style(spinner_style);
 
         // handle copy flag
-        // TODO make default??
         if copy_flag {
             pb.set_message(format!("{}", "making backup...".truecolor(250, 0, 104)));
             // TODO check if copying works correctly
             make_file_copy(pb.clone(), &path, &config_dir)?;
         }
 
-        // read file
-        pb.set_message(format!("{}", "reading file...".truecolor(250, 0, 104)));
-
         // close if file is empty
         check_file_size(&path);
+
+        // read file
+        pb.set_message(format!("{}", "reading file...".truecolor(250, 0, 104)));
 
         // TODO remove this var later
         // if methods write content separatly to file
@@ -173,7 +172,8 @@ fn main() -> Result<(), Box<dyn Error>> {
                 }
                 Method::ChaCha20Poly1305 => {
                     // TODO ask user for key
-                    // WARNING key must be 32 bytes long
+                    // TODO hash user given pw with argon (hash length = 32)
+                    // INFO key must be 32 bytes long
                     let key = "passwordpasswordpasswordpassword".to_string().into_bytes();
 
                     // TODO handle unwrap()
@@ -221,7 +221,8 @@ fn main() -> Result<(), Box<dyn Error>> {
                 }
                 Method::ChaCha20Poly1305 => {
                     // TODO ask user for key
-                    // WARNING key must be 32 bytes long
+                    // TODO hash user given pw with argon (hash length = 32)
+                    // INFO key must be 32 bytes long
                     let key = "passwordpasswordpasswordpassword".to_string().into_bytes();
 
                     let (nonce, encrypted_text) = extract_nonce(&byte_content);
@@ -253,6 +254,9 @@ fn main() -> Result<(), Box<dyn Error>> {
                     encoded_decoded_content.append(&mut xor_decoded_vec);
                 }
             }
+        } else {
+            // no signing, no en-/decoding => nothing to do
+            writing_done = true;
         }
 
         // write encoded/encrypted // decoded/decrpyted content back to file
@@ -315,7 +319,7 @@ fn gib() -> Command {
             "Quickly en-/decode // en-/decrypt files 'on the fly'",
         ))
         // TODO update version
-        .version("1.7.1")
+        .version("1.7.3")
         .author("Leann Phydon <leann.phydon@gmail.com>")
         .arg_required_else_help(true)
         .arg(
