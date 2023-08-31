@@ -340,7 +340,7 @@ fn gib() -> Command {
             "Quickly en-/decode // en-/decrypt files 'on the fly'",
         ))
         // TODO update version
-        .version("1.7.3")
+        .version("1.7.5")
         .author("Leann Phydon <leann.phydon@gmail.com>")
         .arg_required_else_help(true)
         .arg(
