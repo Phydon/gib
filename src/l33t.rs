@@ -122,7 +122,10 @@ pub fn encode_decode_l33t(byte_content: &Vec<u8>, mode: &String) -> io::Result<V
         L33t::Soft => l33t_alphabet_soft(),
     };
 
-    let content = String::from_utf8(byte_content.to_owned()).unwrap();
+    let content = String::from_utf8(byte_content.to_owned()).unwrap_or_else(|_| {
+        error!("Unable to read non-utf8 content");
+        process::exit(0);
+    });
     let encoded: String = content
         .chars()
         .map(|char| {
@@ -135,6 +138,7 @@ pub fn encode_decode_l33t(byte_content: &Vec<u8>, mode: &String) -> io::Result<V
 
     Ok(encoded.into_bytes())
 }
+
 #[test]
 fn encode_l33t_soft_test() {
     assert_eq!(
