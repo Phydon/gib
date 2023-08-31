@@ -180,13 +180,20 @@ fn main() -> Result<(), Box<dyn Error>> {
                     encoded_decoded_content.append(&mut caesar_encoded_vec);
                 }
                 Method::ChaCha20Poly1305 => {
-                    // TODO ask user for key
-                    // TODO hash user given pw with argon (hash length = 32)
-                    // INFO key must be 32 bytes long
-                    let key = "passwordpasswordpasswordpassword".to_string().into_bytes();
+                    // ask user for password
+                    let mut key = Vec::new();
+                    // FIXME suspend progressbar
+                    let input = prompt_user_for_input(pb.clone(), "Enter password".to_string());
+                    key.append(&mut input.into_bytes());
 
-                    // TODO handle unwrap()
-                    let mut chacha_encoded_vec = encode_chacha(&key, &byte_content).unwrap();
+                    let hashed_key = calculate_hash(pb.clone(), &key);
+
+                    let mut chacha_encoded_vec = encode_chacha(&hashed_key, &byte_content)
+                        .unwrap_or_else(|err| {
+                            warn!("{}", format!("Unable to encode content: {}", err));
+                            process::exit(0);
+                        });
+
                     encoded_decoded_content.append(&mut chacha_encoded_vec);
                 }
                 Method::Hex => {
@@ -229,16 +236,21 @@ fn main() -> Result<(), Box<dyn Error>> {
                     encoded_decoded_content.append(&mut caesar_decoded_vec);
                 }
                 Method::ChaCha20Poly1305 => {
-                    // TODO ask user for key
-                    // TODO hash user given pw with argon (hash length = 32)
-                    // INFO key must be 32 bytes long
-                    let key = "passwordpasswordpasswordpassword".to_string().into_bytes();
+                    // ask user for password
+                    let mut key = Vec::new();
+                    // FIXME suspend progressbar
+                    let input = prompt_user_for_input(pb.clone(), "Enter password".to_string());
+                    key.append(&mut input.into_bytes());
+
+                    let hashed_key = calculate_hash(pb.clone(), &key);
 
                     let (nonce, encrypted_text) = extract_nonce(&byte_content);
 
-                    // TODO handle unwrap()
                     let mut chacha_decoded_vec =
-                        decode_chacha(&key, &nonce, &encrypted_text).unwrap();
+                        decode_chacha(&hashed_key, &nonce, &encrypted_text).unwrap_or_else(|err| {
+                            warn!("{}", format!("Unable to decode content: {}", err));
+                            process::exit(0);
+                        });
                     encoded_decoded_content.append(&mut chacha_decoded_vec);
                 }
                 Method::Hex => {
