@@ -16,7 +16,7 @@ pub fn prompt_user_for_input(pb: ProgressBar, msg: String) -> String {
     pb.suspend(|| {
         println!("{}", msg);
     });
-    let pw_spin_style = ProgressStyle::with_template("{spinner:.black} {msg}").unwrap();
+    let pw_spin_style = ProgressStyle::with_template("{spinner:.black}").unwrap();
     pb.set_style(pw_spin_style.tick_chars("⬛⬛⬛⬛"));
     pb.enable_steady_tick(Duration::from_millis(20));
 

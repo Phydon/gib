@@ -182,11 +182,11 @@ fn main() -> Result<(), Box<dyn Error>> {
                 Method::ChaCha20Poly1305 => {
                     // ask user for password
                     let mut key = Vec::new();
-                    // FIXME suspend progressbar
                     let input = prompt_user_for_input(pb.clone(), "Enter password".to_string());
                     key.append(&mut input.into_bytes());
 
                     let hashed_key = calculate_hash(pb.clone(), &key);
+                    // TODO does pb get restored?
 
                     let mut chacha_encoded_vec = encode_chacha(&hashed_key, &byte_content)
                         .unwrap_or_else(|err| {
@@ -238,11 +238,11 @@ fn main() -> Result<(), Box<dyn Error>> {
                 Method::ChaCha20Poly1305 => {
                     // ask user for password
                     let mut key = Vec::new();
-                    // FIXME suspend progressbar
                     let input = prompt_user_for_input(pb.clone(), "Enter password".to_string());
                     key.append(&mut input.into_bytes());
 
                     let hashed_key = calculate_hash(pb.clone(), &key);
+                    // TODO does pb get restored?
 
                     let (nonce, encrypted_text) = extract_nonce(&byte_content);
 
