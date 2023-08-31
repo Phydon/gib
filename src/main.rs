@@ -125,19 +125,28 @@ fn main() -> Result<(), Box<dyn Error>> {
             let mut rest = Vec::new();
 
             // check if filecontent already contains a hash
-            if byte_content.starts_with("$argon2id$v=19$m=65536,t=3,p=1".as_bytes()) {
+            if byte_content.starts_with("$argon2id".as_bytes()) {
                 // extract hash from content
-                let (mut h, mut r) = extract_hash(&byte_content);
+                let (hash_base64, mut r) = extract_hash(&byte_content);
+                // decode hash_base64
+                let mut h = decode_base64ct(&hash_base64)?;
+
                 hash.append(&mut h);
                 rest.append(&mut r);
             }
 
             if hash.is_empty() {
+                // for identifying hash in file
+                let mut argon_identifier = "$argon2id".to_string().into_bytes();
+                hash.append(&mut argon_identifier);
+
                 // calculate hash from file content
                 let hash_string = calculate_hash(pb.clone(), &byte_content);
-                let mut tmp_hash = hash_string.into_bytes();
-                tmp_hash.push('\n' as u8);
-                hash.append(&mut tmp_hash);
+                // encode hash to base64 (otherwise hash is non-utf8)
+                let mut hash_base64 = encode_base64ct(&hash_string)?;
+
+                hash.append(&mut hash_base64);
+                hash.push('\n' as u8);
             } else {
                 // verify found hash in filecontent
                 let verification = verify_hash(pb.clone(), &hash, &rest);
