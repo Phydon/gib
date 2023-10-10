@@ -151,7 +151,8 @@ fn main() -> Result<(), Box<dyn Error>> {
                 // verify found hash in filecontent
                 let verification = verify_hash(pb.clone(), &hash, &rest);
                 if !verification {
-                    warn!("Couldn`t verify file");
+                    pb.finish_and_clear();
+                    warn!("Couldn`t verify file '{}'", &path.display());
                     process::exit(0);
                 }
 
@@ -182,14 +183,25 @@ fn main() -> Result<(), Box<dyn Error>> {
                 Method::ChaCha20Poly1305 => {
                     // ask user for password
                     let mut key = Vec::new();
-                    let input = prompt_user_for_input(pb.clone(), "Enter password".to_string());
-                    key.append(&mut input.into_bytes());
+                    loop {
+                        let input = prompt_user_for_input(pb.clone(), "Enter password".to_string());
+                        let input_two =
+                            prompt_user_for_input(pb.clone(), "Confirm password".to_string());
+
+                        if input == input_two {
+                            key.append(&mut input.into_bytes());
+                            break;
+                        }
+
+                        println!("Try again");
+                    }
 
                     let hashed_key = calculate_hash(pb.clone(), &key);
                     // TODO does pb get restored?
 
                     let mut chacha_encoded_vec = encode_chacha(&hashed_key, &byte_content)
                         .unwrap_or_else(|err| {
+                            pb.finish_and_clear();
                             warn!("{}", format!("Unable to encode content: {}", err));
                             process::exit(0);
                         });
@@ -210,8 +222,19 @@ fn main() -> Result<(), Box<dyn Error>> {
                 Method::XOR => {
                     let mut key = String::new();
                     if key_flag {
-                        let input = prompt_user_for_input(pb.clone(), "Enter a key".to_string());
-                        key.push_str(&input);
+                        loop {
+                            let input =
+                                prompt_user_for_input(pb.clone(), "Enter a key".to_string());
+                            let input_two =
+                                prompt_user_for_input(pb.clone(), "Confirm key".to_string());
+
+                            if input == input_two {
+                                key.push_str(&input);
+                                break;
+                            }
+
+                            println!("Try again");
+                        }
                     }
 
                     let mut xor_encoded_vec = encode_decode_xor(&byte_content, key)?;
@@ -248,6 +271,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
                     let mut chacha_decoded_vec =
                         decode_chacha(&hashed_key, &nonce, &encrypted_text).unwrap_or_else(|err| {
+                            pb.finish_and_clear();
                             warn!("{}", format!("Unable to decode content: {}", err));
                             process::exit(0);
                         });
@@ -340,7 +364,7 @@ fn gib() -> Command {
             "Quickly en-/decode // en-/decrypt files 'on the fly'",
         ))
         // TODO update version
-        .version("1.7.6")
+        .version("1.7.7")
         .author("Leann Phydon <leann.phydon@gmail.com>")
         .arg_required_else_help(true)
         .arg(
