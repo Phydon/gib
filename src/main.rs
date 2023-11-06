@@ -337,7 +337,8 @@ fn main() -> Result<(), Box<dyn Error>> {
                 }
             }
             _ => {
-                unreachable!();
+                gib().print_help().unwrap();
+                process::exit(0);
             }
         }
     }
@@ -367,7 +368,7 @@ fn gib() -> Command {
             "Quickly en-/decode // en-/decrypt files 'on the fly'",
         ))
         // TODO update version
-        .version("1.8.0")
+        .version("1.8.1")
         .author("Leann Phydon <leann.phydon@gmail.com>")
         .arg_required_else_help(true)
         .arg(
