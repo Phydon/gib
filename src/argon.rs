@@ -8,7 +8,7 @@ const SPINNER_BINARY: &[&str; 10] = &[
 ];
 const SALT: &[u8] = b"gibberish_salt";
 
-pub fn calculate_hash(pb: ProgressBar, password: &Vec<u8>) -> Vec<u8> {
+pub fn calculate_hash(raw: bool, pb: ProgressBar, password: &Vec<u8>) -> Vec<u8> {
     let calc_hash_spin_style = ProgressStyle::with_template("{msg} {spinner:.white}").unwrap();
     pb.set_style(calc_hash_spin_style.tick_strings(SPINNER_BINARY));
     pb.set_message(format!("{}", "calculating hash".truecolor(250, 0, 104)));
@@ -26,9 +26,15 @@ pub fn calculate_hash(pb: ProgressBar, password: &Vec<u8>) -> Vec<u8> {
         hash_length: 32,
     };
 
-    let hash = argon2::hash_raw(password, SALT, &config).expect("Unable to hash input");
+    if raw {
+        let hash = argon2::hash_raw(password, SALT, &config).expect("Unable to hash input");
 
-    hash
+        hash
+    } else {
+        let hash = argon2::hash_encoded(password, SALT, &config).expect("Unable to hash input");
+
+        hash.into_bytes()
+    }
 }
 
 pub fn verify_hash(pb: ProgressBar, hash: &Vec<u8>, password: &Vec<u8>) -> bool {

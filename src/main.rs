@@ -64,9 +64,10 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // handle arguments
     let matches = gib().get_matches();
+    let copy_flag = matches.get_flag("copy");
+    let hash_flag = matches.get_flag("hash");
     let list_flag = matches.get_flag("list");
     let sign_flag = matches.get_flag("sign");
-    let copy_flag = matches.get_flag("copy");
 
     if list_flag {
         // list all available en-/decoding // en-/decrypting methods
@@ -76,13 +77,16 @@ fn main() -> Result<(), Box<dyn Error>> {
         let path = Path::new(arg);
 
         if !path.exists() {
-            error!("The file doesn`t exist");
+            error!(
+                "{}",
+                format!("The file '{}' doesn`t exist", &path.display())
+            );
             process::exit(0);
         }
 
         // TODO handle directories
         if !path.is_file() {
-            error!("Not a file");
+            error!("{}", format!("Not a file: '{}'", &path.display()));
             process::exit(0);
         }
 
@@ -107,7 +111,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         // close if file is empty
         if file_is_emtpy(&path) {
-            warn!("The file is emtpy");
+            warn!("{}", format!("The file '{}' is emtpy", &path.display()));
             pb.finish_and_clear();
             process::exit(0);
         };
@@ -126,10 +130,25 @@ fn main() -> Result<(), Box<dyn Error>> {
         let mut encoded_decoded_content = Vec::new();
 
         // for storing hash
-        let mut hash = Vec::new();
-        // handle sign flag
-        // TODO confusing -> rewrite!!
-        if sign_flag {
+        let mut sign_hash = Vec::new();
+        if hash_flag {
+            let hash_bytes = calculate_hash(false, pb.clone(), &byte_content);
+            let hash = String::from_utf8(hash_bytes).unwrap_or_else(|err| {
+                pb.finish_and_clear();
+                error!(
+                    "{}",
+                    format!("Unable to hash file '{}': {}", &path.display(), err)
+                );
+                process::exit(0);
+            });
+
+            println!("{hash}");
+
+            // no file changes needed
+            writing_done = true;
+        } else if sign_flag {
+            // handle sign flag
+            // TODO confusing -> rewrite!!
             // for storing rest of the content if there is a hash
             let mut rest = Vec::new();
 
@@ -140,25 +159,25 @@ fn main() -> Result<(), Box<dyn Error>> {
                 // decode hash_base64
                 let mut h = decode_base64ct(&hash_base64)?;
 
-                hash.append(&mut h);
+                sign_hash.append(&mut h);
                 rest.append(&mut r);
             }
 
-            if hash.is_empty() {
+            if sign_hash.is_empty() {
                 // for identifying hash in file
                 let mut argon_identifier = "$argon2id".to_string().into_bytes();
-                hash.append(&mut argon_identifier);
+                sign_hash.append(&mut argon_identifier);
 
                 // calculate hash from file content
-                let hash_string = calculate_hash(pb.clone(), &byte_content);
+                let hash_string = calculate_hash(true, pb.clone(), &byte_content);
                 // encode hash to base64 (otherwise hash is non-utf8)
                 let mut hash_base64 = encode_base64ct(&hash_string)?;
 
-                hash.append(&mut hash_base64);
-                hash.push('\n' as u8);
+                sign_hash.append(&mut hash_base64);
+                sign_hash.push('\n' as u8);
             } else {
                 // verify found hash in filecontent
-                let verification = verify_hash(pb.clone(), &hash, &rest);
+                let verification = verify_hash(pb.clone(), &sign_hash, &rest);
                 if !verification {
                     pb.finish_and_clear();
                     warn!("Couldn`t verify file '{}'", &path.display());
@@ -205,7 +224,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                         println!("Try again");
                     }
 
-                    let hashed_key = calculate_hash(pb.clone(), &key);
+                    let hashed_key = calculate_hash(true, pb.clone(), &key);
                     // TODO does pb get restored?
 
                     let mut chacha_encoded_vec = encode_chacha(&hashed_key, &byte_content)
@@ -256,7 +275,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                     let input = prompt_user_for_input(pb.clone(), "Enter password".to_string());
                     key.append(&mut input.into_bytes());
 
-                    let hashed_key = calculate_hash(pb.clone(), &key);
+                    let hashed_key = calculate_hash(true, pb.clone(), &key);
                     // TODO does pb get restored?
 
                     let (nonce, encrypted_text) = extract_nonce(&byte_content);
@@ -292,9 +311,9 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         // write encoded/encrypted // decoded/decrpyted content back to file
         if !writing_done {
-            if !hash.is_empty() {
+            if !sign_hash.is_empty() {
                 // concat hash and rest of the byte_content
-                let mut concated_hash_and_rest_bytes = hash;
+                let mut concated_hash_and_rest_bytes = sign_hash;
                 concated_hash_and_rest_bytes.append(&mut byte_content);
 
                 write_non_utf8_content(&path, &concated_hash_and_rest_bytes)?;
@@ -348,7 +367,7 @@ fn gib() -> Command {
             "Quickly en-/decode // en-/decrypt files 'on the fly'",
         ))
         // TODO update version
-        .version("1.7.8")
+        .version("1.8.0")
         .author("Leann Phydon <leann.phydon@gmail.com>")
         .arg_required_else_help(true)
         .arg(
@@ -364,8 +383,7 @@ fn gib() -> Command {
                 .long("copy")
                 .help("Create a copy of the file")
                 .long_help("Create a copy of the file in the config directory")
-                .action(ArgAction::SetTrue)
-                .conflicts_with("list"),
+                .action(ArgAction::SetTrue),
         )
         .arg(
             Arg::new("decode")
@@ -387,6 +405,17 @@ fn gib() -> Command {
                 .value_name("ENCODING/ENCRYPTING METHOD"),
         )
         .arg(
+            Arg::new("hash")
+                .short('H')
+                .long("hash")
+                .help("Return the hash of a file")
+                .long_help(format!(
+                    "{}\n{}",
+                    "Return the hash of a file", "hashing algorithm: [ argon2id ]"
+                ))
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
             Arg::new("l33t")
                 .short('3')
                 .long("l33t")
@@ -403,7 +432,7 @@ fn gib() -> Command {
                 .long("list")
                 .help("List all available en-/decoding // en-/decrypting methods")
                 .action(ArgAction::SetTrue)
-                .conflicts_with_all(["decode", "encode", "sign"]),
+                .conflicts_with_all(["copy", "decode", "encode", "hash", "sign"]),
         )
         .arg(
             Arg::new("sign")
@@ -411,7 +440,7 @@ fn gib() -> Command {
                 .long("sign")
                 .help("Verify a file with a signature")
                 .action(ArgAction::SetTrue)
-                .conflicts_with_all(["decode", "encode", "list"]),
+                .conflicts_with_all(["decode", "encode", "hash", "list"]),
         )
         .subcommand(
             Command::new("log")

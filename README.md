@@ -24,6 +24,13 @@ turning text into **gibberish**
 * l33t
 * xor
 
+### Hashing algorithms
+
+*work in progress*
+
+* argon2id (low memory)
+
+
 ## Usage
 
 ### Short Usage
@@ -45,6 +52,8 @@ Options:
           Decode/Decrypt the file
   -e, --encode <ENCODING/ENCRYPTING METHOD>
           Encode/Encrypt the file
+  -H, --hash
+          Return the hash of a file
   -3, --l33t <Mode>
           Set l33t mode [default: soft] [possible values: soft, hard]
   -l, --list
@@ -79,6 +88,10 @@ Options:
 
   -e, --encode <ENCODING/ENCRYPTING METHOD>
           Encode/Encrypt the file
+        
+  -H, --hash
+          Return the hash of a file
+          hashing algorithm: [ argon2id ]        
 
   -3, --l33t <Mode>
           Set l33t mode
