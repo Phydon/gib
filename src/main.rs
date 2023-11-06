@@ -21,7 +21,7 @@ use clap::{Arg, ArgAction, Command};
 use flexi_logger::{detailed_format, Duplicate, FileSpec, Logger};
 use indicatif::{ProgressBar, ProgressStyle};
 use l33t::encode_decode_l33t;
-use log::{error, info, warn};
+use log::{error, warn};
 use owo_colors::colored::*;
 
 use std::{error::Error, path::Path, process, time::Duration};
@@ -67,17 +67,22 @@ fn main() -> Result<(), Box<dyn Error>> {
     let list_flag = matches.get_flag("list");
     let sign_flag = matches.get_flag("sign");
     let copy_flag = matches.get_flag("copy");
-    let key_flag = matches.get_flag("key");
 
     if list_flag {
         // list all available en-/decoding // en-/decrypting methods
         list_methods();
     } else if let Some(arg) = matches.get_one::<String>("arg") {
-        // get search path from arguments
+        // get filepath from arguments
         let path = Path::new(arg);
 
         if !path.exists() {
             error!("The file doesn`t exist");
+            process::exit(0);
+        }
+
+        // TODO handle directories
+        if !path.is_file() {
+            error!("Not a file");
             process::exit(0);
         }
 
@@ -101,13 +106,16 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
 
         // close if file is empty
-        check_file_size(&path);
+        if file_is_emtpy(&path) {
+            warn!("The file is emtpy");
+            pb.finish_and_clear();
+            process::exit(0);
+        };
 
         // read file
         pb.set_message(format!("{}", "reading file...".truecolor(250, 0, 104)));
 
-        // TODO remove this var later
-        // if methods write content separatly to file
+        // if methods write content separately to file
         // set writing_done variable to true
         let mut writing_done = false;
 
@@ -120,6 +128,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         // for storing hash
         let mut hash = Vec::new();
         // handle sign flag
+        // TODO confusing -> rewrite!!
         if sign_flag {
             // for storing rest of the content if there is a hash
             let mut rest = Vec::new();
@@ -220,24 +229,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                     }
                 }
                 Method::XOR => {
-                    let mut key = String::new();
-                    if key_flag {
-                        loop {
-                            let input =
-                                prompt_user_for_input(pb.clone(), "Enter a key".to_string());
-                            let input_two =
-                                prompt_user_for_input(pb.clone(), "Confirm key".to_string());
-
-                            if input == input_two {
-                                key.push_str(&input);
-                                break;
-                            }
-
-                            println!("Try again");
-                        }
-                    }
-
-                    let mut xor_encoded_vec = encode_decode_xor(&byte_content, key)?;
+                    let mut xor_encoded_vec = encode_decode_xor(&byte_content)?;
                     encoded_decoded_content.append(&mut xor_encoded_vec);
                 }
             }
@@ -289,13 +281,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                     }
                 }
                 Method::XOR => {
-                    let mut key = String::new();
-                    if key_flag {
-                        let input = prompt_user_for_input(pb.clone(), "Enter a key".to_string());
-                        key.push_str(&input);
-                    }
-
-                    let mut xor_decoded_vec = encode_decode_xor(&byte_content, key)?;
+                    let mut xor_decoded_vec = encode_decode_xor(&byte_content)?;
                     encoded_decoded_content.append(&mut xor_decoded_vec);
                 }
             }
@@ -332,9 +318,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 }
             }
             _ => {
-                info!("Usage: 'gib [OPTIONS] [PATH] [COMMAND]'");
-                info!("Type: 'gib help' to get more information");
-                process::exit(0);
+                unreachable!();
             }
         }
     }
@@ -364,7 +348,7 @@ fn gib() -> Command {
             "Quickly en-/decode // en-/decrypt files 'on the fly'",
         ))
         // TODO update version
-        .version("1.7.7")
+        .version("1.7.8")
         .author("Leann Phydon <leann.phydon@gmail.com>")
         .arg_required_else_help(true)
         .arg(
@@ -403,22 +387,6 @@ fn gib() -> Command {
                 .value_name("ENCODING/ENCRYPTING METHOD"),
         )
         .arg(
-            Arg::new("key")
-                .short('k')
-                .long("key")
-                .help("Use a specific key for encoding")
-                .long_help(format!(
-                    "{}\n{}\n{}\n{}\n{}",
-                    "Use a specific key for encoding",
-                    "If the encoding method allows a custom key, you will get prompted to enter a key",
-                    "To decode this file again correctly, the same key must be used",
-                    "This flag gets ignored if the encoding method doesn`t allow a specific key",
-                    "This is NOT a password",
-                ))
-                .action(ArgAction::SetTrue)
-                .conflicts_with("list"),
-        )
-        .arg(
             Arg::new("l33t")
                 .short('3')
                 .long("l33t")
@@ -435,7 +403,7 @@ fn gib() -> Command {
                 .long("list")
                 .help("List all available en-/decoding // en-/decrypting methods")
                 .action(ArgAction::SetTrue)
-                .conflicts_with_all(["decode", "encode"]),
+                .conflicts_with_all(["decode", "encode", "sign"]),
         )
         .arg(
             Arg::new("sign")
@@ -452,27 +420,3 @@ fn gib() -> Command {
                 .about("Show content of the log file"),
         )
 }
-
-// TODO add default_decoding??
-// fn default_encoding(path: &PathBuf, content: &String) -> io::Result<()> {
-//     // let hash = String::new();
-//     // let key = String::new();
-//     // let xored = encode_decode_xor(&content.clone().into_bytes(), key.clone())?;
-//     // let encoded = encode_hex(xored)?;
-//     let b64 = encode_base64ct(content)?;
-//     let encoded = encode_hex(&b64)?;
-
-//     // write_utf8_content(&path, hash.clone(), &encoded)?;
-//     write_non_utf8_content(&path, &encoded)?;
-
-//     // read in bytes here
-//     let byte_content = read_non_utf8(&path)?;
-
-//     let hex_decoded = decode_hex(&byte_content)?;
-//     let decoded = decode_base64ct(&String::from_utf8(hex_decoded).unwrap())?;
-
-//     // write_utf8_content(&path, hash, &decoded)?;
-//     write_non_utf8_content(&path, &decoded)?;
-
-//     Ok(())
-// }

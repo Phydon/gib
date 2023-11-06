@@ -1,12 +1,11 @@
 use indicatif::{ProgressBar, ProgressStyle};
-use log::{error, warn};
+use log::{error, info};
 use owo_colors::colored::*;
 
 use std::{
     fs,
     io::{self, Read, Write},
     path::{Path, PathBuf},
-    process,
     time::Duration,
 };
 
@@ -30,51 +29,15 @@ pub fn prompt_user_for_input(pb: ProgressBar, msg: String) -> String {
     input.trim().to_string()
 }
 
-fn reduce_string(string: &mut String) -> String {
-    while string.len() >= (u64::MAX as usize).to_string().len() {
-        string.pop();
-    }
-
-    string.to_owned()
-}
-
-fn reduce_num(number: u64) -> u8 {
-    let mut num = number as f64;
-
-    while num > u8::MAX as f64 {
-        num = num.sqrt();
-    }
-
-    num.round() as u8
-}
-
-pub fn convert_string_to_number(string: String) -> u8 {
-    let mut s = String::new();
-    for b in string.into_bytes() {
-        s.push_str(&b.to_string());
-    }
-
-    let shrinked_s = reduce_string(&mut s);
-    // make sure that returning string len() isn`t out of range of u64
-    assert!(shrinked_s.len() < u64::MAX as usize);
-
-    let n: u64 = shrinked_s.parse().unwrap();
-
-    let num: u8 = reduce_num(n);
-    // make sure that returning number isn`t out of range of u8
-    assert!(num < u8::MAX);
-
-    num
-}
-
-pub fn check_file_size(path: &PathBuf) {
+pub fn file_is_emtpy(path: &PathBuf) -> bool {
     let file_size = fs::metadata(path)
         .expect("Unable to read file metadata")
         .len();
     if file_size <= 0 {
-        warn!("The file is emtpy");
-        process::exit(0);
+        return true;
     }
+
+    false
 }
 
 pub fn read_file_content(path: &PathBuf) -> io::Result<Vec<u8>> {
@@ -123,7 +86,11 @@ pub fn make_file_copy(
 
     // copy source to destination
     // TODO replace with crate fs_extra when working with directories
-    fs::copy(source_path, dest_path)?;
+    fs::copy(source_path, &dest_path)?;
+
+    pb.suspend(|| {
+        info!("Backup at {}", dest_path.display());
+    });
 
     Ok(())
 }

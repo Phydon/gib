@@ -1,8 +1,16 @@
+## WARNING
+
+=> **always backup your files before using this program**
+
+=> **this is NOT a very secure way of encrypting your files**
+
+
+
 # gib
 
 turning text into **gibberish**
 
-*quick file en-/decoding // en-/decrypting "on the fly"*
+*quick file en-/decoding "on the fly"*
 
 
 ### Supported en-/decoding // en-/decrypting methods:
@@ -37,8 +45,6 @@ Options:
           Decode/Decrypt the file
   -e, --encode <ENCODING/ENCRYPTING METHOD>
           Encode/Encrypt the file
-  -k, --key
-          Use a specific key for encoding
   -3, --l33t <Mode>
           Set l33t mode [default: soft] [possible values: soft, hard]
   -l, --list
@@ -74,13 +80,6 @@ Options:
   -e, --encode <ENCODING/ENCRYPTING METHOD>
           Encode/Encrypt the file
 
-  -k, --key
-          Use a specific key for encoding
-          If the encoding method allows a custom key, you will get prompted to enter a key
-          To decode this file again correctly, the same key must be used
-          This flag gets ignored if the encoding method doesn`t allow a specific key
-          This is NOT a password
-
   -3, --l33t <Mode>
           Set l33t mode
 
@@ -106,10 +105,3 @@ Options:
 ### Windows
 
 via Cargo or get the ![binary](https://github.com/Phydon/gib/releases)
-
-
-## WARNING
-
-**always backup your files before using this program**
-
-**this is not a very secure way of encrypting your files**
