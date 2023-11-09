@@ -1,7 +1,7 @@
 use std::io;
 
 pub fn encode_hex(content: &Vec<u8>) -> io::Result<Vec<u8>> {
-    // TODO error in crate hex?
+    // WARNING error in crate hex?
     // unable to convert '§' <-> 'a7'
 
     let encoded = hex::encode(content);
@@ -10,7 +10,7 @@ pub fn encode_hex(content: &Vec<u8>) -> io::Result<Vec<u8>> {
 }
 
 pub fn decode_hex(content: &Vec<u8>) -> io::Result<Vec<u8>> {
-    // TODO error in crate hex?
+    // WARNING error in crate hex?
     // unable to convert '§' <-> 'a7'
 
     let decoded = hex::decode(content).expect("Error while decoding file");
@@ -61,7 +61,7 @@ fn decode_hex_special_chars_test() {
 }
 
 #[test]
-// FIXME error in hex crate ???
+// WARNING error in hex crate ???
 #[ignore]
 fn encode_hex_special_chars_test_2() {
     assert_eq!(
@@ -71,7 +71,7 @@ fn encode_hex_special_chars_test_2() {
 }
 
 #[test]
-// FIXME error in hex crate ???
+// WARNING error in hex crate ???
 #[ignore]
 fn decode_hex_special_chars_test_2() {
     assert_eq!(
