@@ -1,8 +1,9 @@
+use rayon::prelude::*;
 use std::io;
 
 pub fn encode_decode_xor(content: &Vec<u8>) -> io::Result<Vec<u8>> {
     let key = 42;
-    let encoded: Vec<u8> = content.iter().map(|c| c ^ key).collect();
+    let encoded: Vec<u8> = content.par_iter().map(|c| c ^ key).collect();
 
     Ok(encoded)
 }
