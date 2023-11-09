@@ -131,6 +131,8 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         // for storing hash
         let mut sign_hash = Vec::new();
+
+        // handle flags
         if hash_flag {
             let hash_bytes = calculate_hash(false, pb.clone(), &byte_content);
             let hash = String::from_utf8(hash_bytes).unwrap_or_else(|err| {
@@ -148,19 +150,18 @@ fn main() -> Result<(), Box<dyn Error>> {
             writing_done = true;
         } else if sign_flag {
             // handle sign flag
-            // TODO confusing -> rewrite!!
             // for storing rest of the content if there is a hash
-            let mut rest = Vec::new();
+            let mut rest_byte_content = Vec::new();
 
             // check if filecontent already contains a hash
             if byte_content.starts_with("$argon2id".as_bytes()) {
                 // extract hash from content
-                let (hash_base64, mut r) = extract_hash(&byte_content);
+                let (hash_base64, mut rest) = extract_hash(&byte_content);
                 // decode hash_base64
-                let mut h = decode_base64ct(&hash_base64)?;
+                let mut hash_base64_decoded = decode_base64ct(&hash_base64)?;
 
-                sign_hash.append(&mut h);
-                rest.append(&mut r);
+                sign_hash.append(&mut hash_base64_decoded);
+                rest_byte_content.append(&mut rest);
             }
 
             if sign_hash.is_empty() {
@@ -177,7 +178,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 sign_hash.push('\n' as u8);
             } else {
                 // verify found hash in filecontent
-                let verification = verify_hash(pb.clone(), &sign_hash, &rest);
+                let verification = verify_hash(pb.clone(), &sign_hash, &rest_byte_content);
                 if !verification {
                     pb.finish_and_clear();
                     warn!("Couldn`t verify file '{}'", &path.display());
@@ -201,15 +202,16 @@ fn main() -> Result<(), Box<dyn Error>> {
 
             match method.parse::<Method>().unwrap() {
                 Method::Base64ct => {
-                    let mut base64ct_encoded_vec = encode_base64ct(&byte_content)?;
-                    encoded_decoded_content.append(&mut base64ct_encoded_vec);
+                    let mut base64ct_encoded = encode_base64ct(&byte_content)?;
+                    encoded_decoded_content.append(&mut base64ct_encoded);
                 }
                 Method::Caesar => {
-                    let mut caesar_encoded_vec = encode_caesar(&byte_content)?;
-                    encoded_decoded_content.append(&mut caesar_encoded_vec);
+                    let mut caesar_encoded = encode_caesar(&byte_content)?;
+                    encoded_decoded_content.append(&mut caesar_encoded);
                 }
                 Method::ChaCha20Poly1305 => {
                     // ask user for password
+                    // TODO extract into function
                     let mut key = Vec::new();
                     loop {
                         let input = prompt_user_for_input(pb.clone(), "Enter password".to_string());
@@ -227,29 +229,29 @@ fn main() -> Result<(), Box<dyn Error>> {
                     let hashed_key = calculate_hash(true, pb.clone(), &key);
                     // TODO does pb get restored?
 
-                    let mut chacha_encoded_vec = encode_chacha(&hashed_key, &byte_content)
+                    let mut chacha_encoded = encode_chacha(&hashed_key, &byte_content)
                         .unwrap_or_else(|err| {
                             pb.finish_and_clear();
                             warn!("{}", format!("Unable to encode content: {}", err));
                             process::exit(0);
                         });
 
-                    encoded_decoded_content.append(&mut chacha_encoded_vec);
+                    encoded_decoded_content.append(&mut chacha_encoded);
                 }
                 Method::Hex => {
-                    let mut hex_encoded_vec = encode_hex(&byte_content)?;
-                    encoded_decoded_content.append(&mut hex_encoded_vec);
+                    let mut hex_encoded = encode_hex(&byte_content)?;
+                    encoded_decoded_content.append(&mut hex_encoded);
                 }
                 Method::L33t => {
                     // there should always be at least the default mode
                     if let Some(mode) = matches.get_one::<String>("l33t") {
-                        let mut l33t_encoded_vec = encode_decode_l33t(&byte_content, mode)?;
-                        encoded_decoded_content.append(&mut l33t_encoded_vec);
+                        let mut l33t_encoded = encode_decode_l33t(&byte_content, mode)?;
+                        encoded_decoded_content.append(&mut l33t_encoded);
                     }
                 }
-                Method::XOR => {
-                    let mut xor_encoded_vec = encode_decode_xor(&byte_content)?;
-                    encoded_decoded_content.append(&mut xor_encoded_vec);
+                Method::Xor => {
+                    let mut xor_encoded = encode_decode_xor(&byte_content)?;
+                    encoded_decoded_content.append(&mut xor_encoded);
                 }
             }
         } else if let Some(method) = matches.get_one::<String>("decode") {
@@ -262,12 +264,12 @@ fn main() -> Result<(), Box<dyn Error>> {
 
             match method.parse::<Method>().unwrap() {
                 Method::Base64ct => {
-                    let mut base64ct_decoded_vec = decode_base64ct(&byte_content)?;
-                    encoded_decoded_content.append(&mut base64ct_decoded_vec);
+                    let mut base64ct_decoded = decode_base64ct(&byte_content)?;
+                    encoded_decoded_content.append(&mut base64ct_decoded);
                 }
                 Method::Caesar => {
-                    let mut caesar_decoded_vec = decode_caesar(&byte_content)?;
-                    encoded_decoded_content.append(&mut caesar_decoded_vec);
+                    let mut caesar_decoded = decode_caesar(&byte_content)?;
+                    encoded_decoded_content.append(&mut caesar_decoded);
                 }
                 Method::ChaCha20Poly1305 => {
                     // ask user for password
@@ -280,28 +282,28 @@ fn main() -> Result<(), Box<dyn Error>> {
 
                     let (nonce, encrypted_text) = extract_nonce(&byte_content);
 
-                    let mut chacha_decoded_vec =
-                        decode_chacha(&hashed_key, &nonce, &encrypted_text).unwrap_or_else(|err| {
+                    let mut chacha_decoded = decode_chacha(&hashed_key, &nonce, &encrypted_text)
+                        .unwrap_or_else(|err| {
                             pb.finish_and_clear();
                             warn!("{}", format!("Unable to decode content: {}", err));
                             process::exit(0);
                         });
-                    encoded_decoded_content.append(&mut chacha_decoded_vec);
+                    encoded_decoded_content.append(&mut chacha_decoded);
                 }
                 Method::Hex => {
-                    let mut hex_decoded_vec = decode_hex(&byte_content)?;
-                    encoded_decoded_content.append(&mut hex_decoded_vec);
+                    let mut hex_decoded = decode_hex(&byte_content)?;
+                    encoded_decoded_content.append(&mut hex_decoded);
                 }
                 Method::L33t => {
                     // there should always be at least the default mode
                     if let Some(mode) = matches.get_one::<String>("l33t") {
-                        let mut l33t_decoded_vec = encode_decode_l33t(&byte_content, mode)?;
-                        encoded_decoded_content.append(&mut l33t_decoded_vec);
+                        let mut l33t_decoded = encode_decode_l33t(&byte_content, mode)?;
+                        encoded_decoded_content.append(&mut l33t_decoded);
                     }
                 }
-                Method::XOR => {
-                    let mut xor_decoded_vec = encode_decode_xor(&byte_content)?;
-                    encoded_decoded_content.append(&mut xor_decoded_vec);
+                Method::Xor => {
+                    let mut xor_decoded = encode_decode_xor(&byte_content)?;
+                    encoded_decoded_content.append(&mut xor_decoded);
                 }
             }
         } else {
@@ -368,7 +370,7 @@ fn gib() -> Command {
             "Quickly en-/decode // en-/decrypt files 'on the fly'",
         ))
         // TODO update version
-        .version("1.8.1")
+        .version("1.8.2")
         .author("Leann Phydon <leann.phydon@gmail.com>")
         .arg_required_else_help(true)
         .arg(

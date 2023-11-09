@@ -17,7 +17,7 @@ pub enum Method {
     // LeannCrypt,
     L33t,
     // RC4,
-    XOR,
+    Xor,
 }
 
 #[derive(Debug)]
@@ -35,7 +35,7 @@ impl FromStr for Method {
             }
             "hex" => Ok(Method::Hex),
             "l33t" | "1337" | "leet" => Ok(Method::L33t),
-            "xor" => Ok(Method::XOR),
+            "xor" => Ok(Method::Xor),
             _ => {
                 error!("{:?}: Unknown method", MethodError);
                 info!("Type: 'gib --list' to see all available methods");
