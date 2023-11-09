@@ -63,7 +63,7 @@ fn decode_hex_special_chars_test() {
 #[test]
 // WARNING error in hex crate ???
 #[ignore]
-fn encode_hex_special_chars_test_2() {
+fn encode_hex_special_chars_error_hex_crate_test_2() {
     assert_eq!(
         encode_hex(&"§".to_string().into_bytes()).unwrap(),
         "a7".as_bytes()
@@ -73,7 +73,7 @@ fn encode_hex_special_chars_test_2() {
 #[test]
 // WARNING error in hex crate ???
 #[ignore]
-fn decode_hex_special_chars_test_2() {
+fn decode_hex_special_chars_error_hex_crate_test_2() {
     assert_eq!(
         decode_hex(&"a7".to_string().into_bytes()).unwrap(),
         "§".as_bytes()
