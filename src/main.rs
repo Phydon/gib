@@ -119,7 +119,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         // read file
         pb.set_message(format!("{}", "reading file...".truecolor(250, 0, 104)));
 
-        // if methods write content separately to file
+        // if encrypting methods write content separately to file
         // set writing_done variable to true
         let mut writing_done = false;
 
@@ -307,8 +307,10 @@ fn main() -> Result<(), Box<dyn Error>> {
                 }
             }
         } else {
-            // no signing, no en-/decoding => nothing to do
-            writing_done = true;
+            // no hashing, no signing, no en-/decoding => nothing to do
+            pb.finish_and_clear();
+            let _ = gib().print_help();
+            process::exit(0);
         }
 
         // write encoded/encrypted // decoded/decrpyted content back to file
@@ -370,7 +372,7 @@ fn gib() -> Command {
             "Quickly en-/decode // en-/decrypt files 'on the fly'",
         ))
         // TODO update version
-        .version("1.8.4")
+        .version("1.8.5")
         .author("Leann Phydon <leann.phydon@gmail.com>")
         .arg_required_else_help(true)
         .arg(
