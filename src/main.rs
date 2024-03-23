@@ -133,11 +133,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         let mut sign_hash = Vec::new();
 
         // handle flags
-        // FIXME clear pb and then print hash output to commandline
         if hash_flag {
             let hash_bytes = calculate_hash(false, pb.clone(), &byte_content);
+            pb.finish_and_clear();
             let hash = String::from_utf8(hash_bytes).unwrap_or_else(|err| {
-                pb.finish_and_clear();
                 error!(
                     "{}",
                     format!("Unable to hash file '{}': {}", &path.display(), err)
@@ -371,7 +370,7 @@ fn gib() -> Command {
             "Quickly en-/decode // en-/decrypt files 'on the fly'",
         ))
         // TODO update version
-        .version("1.8.3")
+        .version("1.8.4")
         .author("Leann Phydon <leann.phydon@gmail.com>")
         .arg_required_else_help(true)
         .arg(
