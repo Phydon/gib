@@ -15,8 +15,6 @@ turning text into **gibberish**
 
 ### Supported en-/decoding // en-/decrypting methods:
 
-*work in progress*
-
 * base64 (constant time)
 * caesar cipher
 * chacha20poly1305
@@ -25,8 +23,6 @@ turning text into **gibberish**
 * xor
 
 ### Hashing algorithms
-
-*work in progress*
 
 * argon2id (low memory)
 
