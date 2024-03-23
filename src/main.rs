@@ -133,6 +133,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         let mut sign_hash = Vec::new();
 
         // handle flags
+        // FIXME clear pb and then print hash output to commandline
         if hash_flag {
             let hash_bytes = calculate_hash(false, pb.clone(), &byte_content);
             let hash = String::from_utf8(hash_bytes).unwrap_or_else(|err| {
