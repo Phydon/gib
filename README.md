@@ -13,6 +13,9 @@ turning text into **gibberish**
 *quick file en-/decoding "on the fly"*
 
 
+[![Tests](https://github.com/Phydon/gib/actions/workflows/rust.yml/badge.svg)](https://github.com/Phydon/gib/actions/workflows/rust.yml)
+
+
 ### Supported en-/decoding // en-/decrypting methods:
 
 * base64 (constant time)
