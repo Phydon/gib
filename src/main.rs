@@ -31,13 +31,7 @@ pub const SPINNER_ARC: &[&str; 6] = &["◜", "◠", "◝", "◞", "◡", "◟"];
 fn main() -> Result<(), Box<dyn Error>> {
     // handle Ctrl+C
     ctrlc::set_handler(move || {
-        println!(
-            "{} {} {} {}",
-            "Received Ctrl-C!".bold().red(),
-            "🤬",
-            "Exit program!".bold().red(),
-            "☠",
-        );
+        println!("{}", "Received Ctrl-C!".italic());
         process::exit(0)
     })
     .expect("Error setting Ctrl-C handler");
@@ -372,7 +366,7 @@ fn gib() -> Command {
             "Quickly en-/decode // en-/decrypt files 'on the fly'",
         ))
         // TODO update version
-        .version("1.8.5")
+        .version("1.8.6")
         .author("Leann Phydon <leann.phydon@gmail.com>")
         .arg_required_else_help(true)
         .arg(
@@ -387,7 +381,11 @@ fn gib() -> Command {
                 .short('c')
                 .long("copy")
                 .help("Create a copy of the file")
-                .long_help("Create a copy of the file in the config directory")
+                .long_help(format!(
+                    "{}\n{}",
+                    "Create a copy of the file in the config directory",
+                    "Use the '--log' flag to find the config directory"
+                ))
                 .action(ArgAction::SetTrue),
         )
         .arg(
